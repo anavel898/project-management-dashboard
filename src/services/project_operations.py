@@ -1,18 +1,17 @@
+from src.project_handler_interface import ProjectHandlerInterface
 import json
+from fastapi import HTTPException
 
-class Project:
-    createdProjects = 0
 
-    def __init__(self, name: str, ownerId: int, owner: str, description: str, logo: str = "", documents:str = "", contributors: list[int] = []) -> None:
-        self.id = Project.createdProjects + 1
+class Project:    
+    def __init__(self, id: int, name: str, ownerId: int, description: str, logo: str = None, documents:str = None, contributors: list[int] = None) -> None:
+        self.id = id
         self.name = name
         self.ownerId = ownerId  
-        self.owner = owner  # when user creation is implemented this will be replaced with a query to find the name of user with id provided as ownerId
         self.description = description
         self.logo = logo
         self.documents = documents
         self.contributors = contributors
-        Project.createdProjects += 1
     
     def update_attribute(self, attributeName, newAttributeValue) -> None:
         self.__dict__[attributeName] = newAttributeValue
@@ -21,34 +20,43 @@ class Project:
         return {"id": self.id,
                 "name": self.name,
                 "ownerId": self.ownerId,
-                "owner": self.owner,
                 "description": self.description,
                 "logo": self.logo,
                 "documents": self.documents,
                 "contributors": self.contributors}
 
 
-
-def all_projects_to_json(projects_dict: dict[int, Project]) -> object:
-    temp_projects = {}
-    for key, value in projects_dict.items():
-        temp_projects[key] = value.to_dict()
-    return json.dumps(temp_projects)
+class InMemProjectHandler(ProjectHandlerInterface):
+    def __init__(self) -> None:
+        self.allProjects = dict()
+        self.projectsNumber = 0
 
 
-def create_new_project(name, ownerId, owner, description, logo, documents, contributors) -> None:
-    newProject = Project(name, ownerId, owner, description, logo, documents, contributors)
-    projects[Project.createdProjects] = newProject
-    return Project.createdProjects
+    def create(self, name: str, ownerId: int, description: str, logo: str = None, documents: str = None, contributors: list[int] = None) -> None:
+        newProjectId = self.projectsNumber + 1
+        newProject = Project(newProjectId, name, ownerId, description, logo, documents, contributors)
+        self.allProjects[newProjectId] = newProject
+        self.projectsNumber += 1
 
 
-def edit_existing_project(projectId, infoForUpdate) -> None:
-    for item in infoForUpdate.items():
-        if item[1] is not None:
-            projects[projectId].update_attribute(item[0], item[1])
+    def get_all(self) -> object:
+        temp_projects = {}
+        for key, value in self.allProjects.items():
+            temp_projects[key] = value.to_dict()
+        return json.dumps(temp_projects)
+    
 
+    def get(self, projectId: int) -> object:
+        if self.allProjects.get(projectId) is None:
+            raise HTTPException(status_code=400, detail=f"no project with id {projectId} found")
+        return json.dumps(self.allProjects[projectId].to_dict())
 
-
-projects = {1:Project("project 1", 1, "Ana Velimirovic", "toy project to test the API"),
-            2:Project("project 2", 1, "Ana Velimirovic", "second toy project")}
+    
+    def update_info(self, projectId: int, attributesToUpdate: dict) -> None:
+        if self.allProjects.get(projectId) is None:
+            raise HTTPException(status_code=400, detail=f"no project with id {projectId} found")
+        for item in attributesToUpdate.items():
+            if item[1] is not None:
+                self.allProjects[projectId].update_attribute(item[0], item[1])
+    
 

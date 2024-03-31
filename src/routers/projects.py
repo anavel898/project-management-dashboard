@@ -1,54 +1,70 @@
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
-import json
-from src.services.project_operations import projects, all_projects_to_json, create_new_project, edit_existing_project
+from src.project_handler_factory import createHandler, ProjectHandlerType
 
 class NewProject(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    name: str = Field(None, max_length=100)
+    name: str = Field(max_length=100)
     ownerId: int
-    owner: str
-    description: str = Field(None, max_length=500)
+    description: str = Field(max_length=500)
     logo: str | None = None
     documents: str | None = None
-    contributors: list[int] | None = []
+    contributors: list[int] | None = None
 
 class ProjectData(BaseModel):
     model_config = ConfigDict(extra='forbid')
     name: str = Field(None, max_length=100)
     ownerId: int | None = None
-    owner: str | None = None
     description: str = Field(None, max_length=500)
     logo: str | None = None
     documents: str | None = None
-    contributors: list[int] | None = []
+    contributors: list[int] | None = None
 
 router = APIRouter()
 
+projectHandler = createHandler(ProjectHandlerType.IN_MEMORY)
+
+
 @router.get("/projects")
 async def get_all_projects():
-    return all_projects_to_json(projects)
+    try:
+        return projectHandler.get_all()
+    except HTTPException as ex:
+        raise ex
+    except:
+        raise HTTPException(status_code=500)
+
 
 @router.post("/projects")
 async def make_new_project(newProject: NewProject):
-    new_id = create_new_project(newProject.name, newProject.ownerId, newProject.owner, newProject.description, newProject.logo, newProject.documents, newProject.contributors)
-    return Response(status_code=201)
+    try:
+        projectHandler.create(newProject.name, newProject.ownerId, newProject.description, newProject.logo, newProject.documents, newProject.contributors)
+        return Response(status_code=201)
+    except HTTPException as ex:
+        raise ex
+    except:
+        raise HTTPException(status_code=500)
 
 
 @router.get("/project/{project_id}/info")
 async def get_project_details(project_id: int):
-    if projects.get(project_id) is not None:
-        return json.dumps(projects[project_id].to_dict())
-    else:
-        raise HTTPException(status_code=400, detail=f"no project with id {project_id} found")
+    try:
+        return projectHandler.get(project_id)
+    except HTTPException as ex:
+        raise ex
+    except:
+        raise HTTPException(status_code=500)
 
 
 @router.put("/project/{project_id}/info")
 async def update_project_details(project_id:int, newInfo: ProjectData):
     if newInfo.__fields_set__ == set():
         raise HTTPException(status_code=400, detail="Can't update. No project properties were specified in the request body")
-    elif projects.get(project_id) is None:
-        raise HTTPException(status_code=400, detail=f"no project with id {project_id} found")
-    else:
-        edit_existing_project(project_id, newInfo.dict())
+    try:
+        projectHandler.update_info(project_id, newInfo.dict())
         return Response(status_code=200)
+    except HTTPException as ex:
+        raise ex
+    except:
+        raise HTTPException(status_code=500)
+    

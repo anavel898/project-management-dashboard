@@ -1,10 +1,14 @@
 name: CD workflow
 
 on: [push]
+  workflow_run:
+    workflows: ["CI workflow"]
+    types: [completed]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v3
       - name: Build the Docker image

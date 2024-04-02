@@ -54,7 +54,7 @@ async def update_project_details(project_id: int, newInfo: ProjectData):
         )
     try:
         projectHandler.update_info(project_id, newInfo.dict())
-        return Response(status_code=200)
+        return projectHandler.get(project_id)
     except HTTPException as ex:
         raise ex
     except:

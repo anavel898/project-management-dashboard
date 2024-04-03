@@ -7,7 +7,7 @@ class ProjectHandlerInterface(ABC):
     def create(
         self,
         name: str,
-        ownerId: int,
+        createdBy: int,
         description: str,
         logo: str = None,
         documents: str = None,

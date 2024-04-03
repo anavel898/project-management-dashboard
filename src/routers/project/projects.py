@@ -22,7 +22,7 @@ async def make_new_project(newProject: NewProject):
     try:
         projectHandler.create(
             newProject.name,
-            newProject.ownerId,
+            newProject.createdBy,
             newProject.description,
             newProject.logo,
             newProject.documents,
@@ -47,7 +47,7 @@ async def get_project_details(project_id: int):
 
 @router.put("/project/{project_id}/info")
 async def update_project_details(project_id: int, newInfo: ProjectData):
-    if newInfo.__fields_set__ == set():
+    if newInfo.__fields_set__ == set("updatedBy"):
         raise HTTPException(
             status_code=400,
             detail="No project properties were specified in the request body",

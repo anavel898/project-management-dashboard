@@ -121,3 +121,11 @@ class InMemProjectHandler(ProjectHandlerInterface):
                 self.allProjects[projectId].update_attribute(key, value)
         updateTime = datetime.now()
         self.allProjects[projectId].update_attribute("updatedOn", updateTime)
+
+    def delete(self, projectId: int):
+        try:
+            del self.allProjects[projectId]
+        except KeyError:
+            raise HTTPException(status_code=404,
+                                detail=f"No project with id {projectId} found"
+                                )

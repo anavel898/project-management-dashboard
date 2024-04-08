@@ -89,8 +89,6 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
         self.assertIsNone(createdProject.documents)
         self.assertIsNone(createdProject.contributors)
     
-
-
     def test_get_all(self):
         handlerInstance = p.InMemProjectHandler()
         handlerInstance.create(**self.test_project)
@@ -157,7 +155,6 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
         self.assertLessEqual(timestamp,
                              handlerInstance.allProjects[1].updatedOn)
         
-
     def test_update_info_failure(self):
         handlerInstance = p.InMemProjectHandler()
         attributesToUpdate = {"contributors": [2, 4],
@@ -165,3 +162,14 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
         self.assertRaises(
             p.HTTPException, handlerInstance.update_info, 3, attributesToUpdate
         )
+
+    def test_delete_failure(self):
+        handlerInstance = p.InMemProjectHandler()
+        self.assertRaises(p.HTTPException, handlerInstance.delete, 8)
+
+    def test_delete(self):
+        handlerInstance = p.InMemProjectHandler()
+        handlerInstance.create(**self.test_project)
+        handlerInstance.delete(1)
+        self.assertRaises(p.HTTPException,
+                          handlerInstance.get, 1)

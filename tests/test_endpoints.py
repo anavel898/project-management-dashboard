@@ -87,4 +87,12 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual({"detail":"No project with id 65 found"},
                          response.json())    
 
-
+    def delete_fail(self):
+        response = self.client.delete("/project/5")
+        self.assertEqual(404, response.status_code)
+        self.assertEqual({"detail":"No project with id 5 found"},
+                         response.json())
+        
+    def delete(self):
+        response = self.client.delete("/project/1")
+        self.assertEqual(204, response.status_code)

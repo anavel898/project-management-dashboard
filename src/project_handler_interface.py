@@ -26,3 +26,7 @@ class ProjectHandlerInterface(ABC):
     @abstractmethod
     def update_info(self, projectId: int, attributesToUpdate: dict) -> None:
         raise NotImplementedError
+    
+    @abstractmethod
+    def delete(self, projectId: int) -> None:
+        raise NotImplementedError    

@@ -47,15 +47,27 @@ async def get_project_details(project_id: int):
 
 @router.put("/project/{project_id}/info")
 async def update_project_details(project_id: int, newInfo: ProjectData):
-    if newInfo.__fields_set__ == set("updatedBy"):
+    if newInfo.model_fields_set == set("updatedBy"):
         raise HTTPException(
             status_code=400,
-            detail="No project properties were specified in the request body",
+            detail="No project properties were specified in the request body"
         )
     try:
-        projectHandler.update_info(project_id, newInfo.dict())
+        projectHandler.update_info(project_id,
+                                   newInfo.model_dump(exclude_unset=True))
         return projectHandler.get(project_id)
     except HTTPException as ex:
         raise ex
     except:
         raise HTTPException(status_code=500)
+
+
+@router.delete("/project/{project_id}")
+async def delete_project(project_id: int):
+    try:
+        projectHandler.delete(project_id)
+        return Response(status_code=204)
+    except HTTPException as ex:
+        raise ex
+    except:
+        raise HTTPException(status_code=500)    

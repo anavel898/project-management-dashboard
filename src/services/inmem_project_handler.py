@@ -4,64 +4,33 @@ from fastapi import HTTPException
 
 from src.project_handler_interface import ProjectHandlerInterface
 
+from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import List, Optional
 
 
-class Project:
+def datetime_handler(x):
+    if isinstance(x, datetime):
+        return x.isoformat()
+    raise TypeError("Unknown type")
+
+class Project(BaseModel):
     """
     Class represents the project managed by the app.
     """
+    id: int
+    name: str
+    created_by: str
+    created_on: datetime = Field(default_factory=datetime.now)
+    description: str
+    updated_on: Optional[datetime] = None
+    updated_by: Optional[int] = None
+    logo: Optional[str] = None
+    documents: Optional[List[str]] = None
+    contributors: Optional[List[str]] = None
 
-    def __init__(
-        self,
-        id: int,
-        name: str,
-        createdBy: int,
-        createdOn: datetime,
-        description: str,
-        updatedOn: datetime = None,
-        updatedBy: int = None,
-        logo: str = None,
-        documents: str = None,
-        contributors: list[int] = None,
-    ) -> None:
-        self.id = id
-        self.name = name
-        self.createdBy = createdBy
-        # upon db implementation this field will be auto-filled with timestamps
-        # corresponding to time of row creation
-        self.createdOn = createdOn
-        self.description = description
-        # self.updatedBy tracks who last made updates to project details
-        self.updatedBy = updatedBy
-        self.updatedOn = updatedOn
-        self.logo = logo
-        self.documents = documents
-        # self.contributors tracks who is allowed to change project details
-        self.contributors = contributors
-
-    def update_attribute(self, attributeName, newAttributeValue) -> None:
-        self.__dict__[attributeName] = newAttributeValue
-
-    def to_dict(self) -> dict:
-        # converting datetime objects to isoformat strings, so the resulting
-        # dictionary is compatible with json.dumps()
-        updateOnSerializable = None
-        if self.updatedOn is not None:
-            updateOnSerializable = self.updatedOn.isoformat()
-        createdOnSerializable = self.createdOn.isoformat()
-        return {
-            "id": self.id,
-            "name": self.name,
-            "createdBy": self.createdBy,
-            "createdOn": createdOnSerializable,
-            "description": self.description,
-            "updatedBy": self.updatedBy,
-            "updatedOn": updateOnSerializable,
-            "logo": self.logo,
-            "documents": self.documents,
-            "contributors": self.contributors,
-        }
+    def update_attribute(self, attribute_name, new_attribute_value) -> None:
+        setattr(self, attribute_name, new_attribute_value)
 
 
 class InMemProjectHandler(ProjectHandlerInterface):
@@ -73,59 +42,66 @@ class InMemProjectHandler(ProjectHandlerInterface):
 
     def __init__(self) -> None:
         # {ID: Project} dictionary storing all projects managed by the handler
-        self.allProjects = dict()
+        self.all_projects = dict()
         # tracks number of projects managed by the handler and simulates 
         # auto-incremented ids in database
-        self.projectsNumber = 0
+        self.projects_number = 0
 
     def create(
         self,
         name: str,
-        createdBy: int,
+        created_by: str,
         description: str,
         logo: str = None,
         documents: str = None,
         contributors: list[int] = None,
     ) -> None:
-        newProjectId = self.projectsNumber + 1
-        creationTime = datetime.now()
-        newProject = Project(
-            newProjectId, name, createdBy, creationTime,
-            description, logo, documents, contributors
-        )
-        self.allProjects[newProjectId] = newProject
-        self.projectsNumber += 1
+        new_project_id = self.projects_number + 1
+        
+        newProject = Project(id=new_project_id,
+                             name=name,
+                             created_by=created_by,
+                             description=description,
+                             logo=logo,
+                             documents=documents,
+                             contributors=contributors)
+        self.all_projects[new_project_id] = newProject
+        self.projects_number += 1
 
     def get_all(self) -> object:
         projects = {}
-        # converting dictionary of {ID: Project} to {ID: project_as_dict} in 
+        # converting dictionary of {ID: Project} to {ID: project_as_json} in 
         # order to achieve proper json format
-        for key, value in self.allProjects.items():
-            projects[key] = value.to_dict()
-        return json.dumps(projects)
+        for key, value in self.all_projects.items():
+            projects[key] = value.model_dump()
+        return json.dumps(projects, default=datetime_handler)
 
-    def get(self, projectId: int) -> object:
-        if self.allProjects.get(projectId) is None:
+    def get(self, project_id: int) -> object:
+        if self.all_projects.get(project_id) is None:
             raise HTTPException(
-                status_code=404, detail=f"No project with id {projectId} found"
+                status_code=404,
+                detail=f"No project with id {project_id} found"
             )
-        return json.dumps(self.allProjects[projectId].to_dict())
+        return self.all_projects[project_id].model_dump_json()
 
-    def update_info(self, projectId: int, attributesToUpdate: dict) -> None:
-        if self.allProjects.get(projectId) is None:
+    def update_info(self, project_id: int, attributes_to_update: dict) -> None:
+        if self.all_projects.get(project_id) is None:
             raise HTTPException(
-                status_code=404, detail=f"No project with id {projectId} found"
+                status_code=404,
+                detail=f"No project with id {project_id} found"
             )
-        for key, value in attributesToUpdate.items():
+        for key, value in attributes_to_update.items():
             if value is not None:
-                self.allProjects[projectId].update_attribute(key, value)
-        updateTime = datetime.now()
-        self.allProjects[projectId].update_attribute("updatedOn", updateTime)
+                self.all_projects[project_id].update_attribute(key, value)
+        update_time = datetime.now()
+        self.all_projects[project_id].update_attribute("updated_on",
+                                                       update_time)
 
-    def delete(self, projectId: int):
+    def delete(self, project_id: int):
         try:
-            del self.allProjects[projectId]
+            del self.all_projects[project_id]
         except KeyError:
             raise HTTPException(status_code=404,
-                                detail=f"No project with id {projectId} found"
+                                detail=f"No project with id {project_id} found"
                                 )
+        

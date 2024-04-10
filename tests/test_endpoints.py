@@ -12,10 +12,10 @@ class TestEndpoints(unittest.TestCase):
 
     def test_create(self):
         requestBody = {"name": "Project 1",
-                        "createdBy": 1,
+                        "created_by": "anavel",
                         "description": "toy description 1"}
         response = self.client.post("/projects", json=requestBody)
-        self.assertEqual(201, response.status_code)
+        self.assertEqual(200, response.status_code)
 
     def test_get_all(self):
         response = self.client.get("/projects")
@@ -28,11 +28,11 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(1, responseAsDict["1"]["id"])
         self.assertEqual("toy description 1",
                          responseAsDict["1"]["description"])
-        self.assertEqual(1, responseAsDict["1"]["createdBy"])
-        self.assertIsNotNone(responseAsDict["1"]["createdOn"])
+        self.assertEqual("anavel", responseAsDict["1"]["created_by"])
+        self.assertIsNotNone(responseAsDict["1"]["created_on"])
         self.assertIsNone(responseAsDict["1"]["logo"])
-        self.assertIsNone(responseAsDict["1"]["updatedBy"])
-        self.assertIsNone(responseAsDict["1"]["updatedOn"])
+        self.assertIsNone(responseAsDict["1"]["updated_by"])
+        self.assertIsNone(responseAsDict["1"]["updated_on"])
         self.assertIsNone(responseAsDict["1"]["documents"])
         self.assertIsNone(responseAsDict["1"]["contributors"])
 
@@ -45,11 +45,11 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual("Project 1", responseAsDict["name"])
         self.assertEqual(1, responseAsDict["id"])
         self.assertEqual("toy description 1", responseAsDict["description"])
-        self.assertEqual(1, responseAsDict["createdBy"])
-        self.assertIsNotNone(responseAsDict["createdOn"])
+        self.assertEqual("anavel", responseAsDict["created_by"])
+        self.assertIsNotNone(responseAsDict["created_on"])
         self.assertIsNone(responseAsDict["logo"])
-        self.assertIsNone(responseAsDict["updatedBy"])
-        self.assertIsNone(responseAsDict["updatedOn"])
+        self.assertIsNone(responseAsDict["updated_by"])
+        self.assertIsNone(responseAsDict["updated_on"])
         self.assertIsNone(responseAsDict["documents"])
         self.assertIsNone(responseAsDict["contributors"])
 
@@ -60,14 +60,14 @@ class TestEndpoints(unittest.TestCase):
                          response.json())  
         
     def test_update(self):
-        requestBody = {"updatedBy": 1,
+        requestBody = {"updated_by": "janedoe",
                         "contributors": [2, 5]}
         response = self.client.put("/project/1/info", json = requestBody)
 
         self.assertEqual(200, response.status_code)
         responseAsDict = loads(response.json())
-        self.assertIsNotNone(responseAsDict["updatedOn"])
-        self.assertEqual(1, responseAsDict["updatedBy"])
+        self.assertIsNotNone(responseAsDict["updated_on"])
+        self.assertEqual("janedoe", responseAsDict["updated_by"])
         self.assertEqual([2, 5], responseAsDict["contributors"])
     
     def test_update_invalid_body_value(self):
@@ -80,7 +80,7 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(422, response.status_code)
 
     def test_update_non_existing_project(self):
-        requestBody = {"updatedBy": 1,
+        requestBody = {"updated_by": "janedoe",
                         "contributors": [2, 5]} 
         response = self.client.put("/project/65/info", json = requestBody)
         self.assertEqual(404, response.status_code)

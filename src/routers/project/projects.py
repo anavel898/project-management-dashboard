@@ -4,7 +4,7 @@ from src.project_handler_factory import ProjectHandlerType, createHandler
 from src.routers.project.schemas import NewProject, ProjectData
 
 router = APIRouter()
-projectHandler = createHandler(ProjectHandlerType.IN_MEMORY)
+projectHandler = createHandler(ProjectHandlerType.DB)
 
 
 @router.get("/projects")

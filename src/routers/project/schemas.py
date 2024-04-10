@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class NewProject(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=100)
-    createdBy: int
+    createdBy: str
     description: str = Field(max_length=500)
     logo: str | None = None
     documents: str | None = None

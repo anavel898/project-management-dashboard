@@ -4,7 +4,6 @@ import os
 
 load_dotenv()
 LOCAL_STORAGE = os.getenv('LOCAL_STORAGE') == 'True'
-print(f'LOCAL_STORAGE = {LOCAL_STORAGE}')
 
 def createHandler() -> object:
     if LOCAL_STORAGE:

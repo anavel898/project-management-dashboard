@@ -6,7 +6,6 @@ from src.routers.project.schemas import NewProject, ProjectData
 
 router = APIRouter()
 project_handler = createHandler()
-print(f'PROJECT_HANDLER_JE: {project_handler}')
 
 @router.get("/projects")
 async def get_all_projects():

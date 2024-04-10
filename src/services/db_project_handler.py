@@ -1,5 +1,5 @@
 from sqlalchemy.ext.automap import automap_base
-from sqlalchemy import create_engine, select, delete
+from sqlalchemy import create_engine, select, delete, update
 from sqlalchemy.orm import Session
 from src.project_handler_interface import ProjectHandlerInterface
 from json import dumps
@@ -95,10 +95,16 @@ class DbProjectHandler(ProjectHandlerInterface):
     
     def delete(self, project_id: int):
         session = Session(engine)
-        r = session.execute(delete(Projects).where(Projects.id == project_id))
+        session.execute(delete(Projects).where(Projects.id == project_id))
         session.commit()
         session.close()
     
     def update_info(self, project_id: int,
                     attributes_to_update: dict):
-        pass
+        session = Session(engine)
+        q = update(Projects).where(Projects.id == project_id).values(
+                attributes_to_update
+        )
+        session.execute(q)
+        session.commit()
+        session.close()

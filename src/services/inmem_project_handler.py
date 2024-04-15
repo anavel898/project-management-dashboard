@@ -1,18 +1,9 @@
-import json
-
 from fastapi import HTTPException
-
 from src.project_handler_interface import ProjectHandlerInterface
-
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import List, Optional
 
-
-def datetime_handler(x):
-    if isinstance(x, datetime):
-        return x.isoformat()
-    raise TypeError("Unknown type")
 
 class Project(BaseModel):
     """
@@ -24,7 +15,7 @@ class Project(BaseModel):
     created_on: datetime = Field(default_factory=datetime.now)
     description: str
     updated_on: Optional[datetime] = None
-    updated_by: Optional[int] = None
+    updated_by: Optional[str] = None
     logo: Optional[str] = None
     documents: Optional[List[str]] = None
     contributors: Optional[List[str]] = None
@@ -51,40 +42,31 @@ class InMemProjectHandler(ProjectHandlerInterface):
         self,
         name: str,
         created_by: str,
-        description: str,
-        logo: str = None,
-        documents: str = None,
-        contributors: list[int] = None,
+        description: str
     ) -> None:
         new_project_id = self.projects_number + 1
         
         newProject = Project(id=new_project_id,
                              name=name,
                              created_by=created_by,
-                             description=description,
-                             logo=logo,
-                             documents=documents,
-                             contributors=contributors)
+                             description=description)
         self.all_projects[new_project_id] = newProject
         self.projects_number += 1
 
-    def get_all(self) -> object:
-        projects = {}
-        # converting dictionary of {ID: Project} to {ID: project_as_json} in 
-        # order to achieve proper json format
-        for key, value in self.all_projects.items():
-            projects[key] = value.model_dump()
-        return json.dumps(projects, default=datetime_handler)
+    def get_all(self) -> dict:
+        return self.all_projects
 
-    def get(self, project_id: int) -> object:
+    def get(self, project_id: int) -> Project:
         if self.all_projects.get(project_id) is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"No project with id {project_id} found"
             )
-        return self.all_projects[project_id].model_dump_json()
+        return self.all_projects[project_id]
 
-    def update_info(self, project_id: int, attributes_to_update: dict) -> None:
+    def update_info(self,
+                    project_id: int,
+                    attributes_to_update: dict) -> Project:
         if self.all_projects.get(project_id) is None:
             raise HTTPException(
                 status_code=404,
@@ -96,6 +78,7 @@ class InMemProjectHandler(ProjectHandlerInterface):
         update_time = datetime.now()
         self.all_projects[project_id].update_attribute("updated_on",
                                                        update_time)
+        return self.all_projects[project_id]
 
     def delete(self, project_id: int):
         try:

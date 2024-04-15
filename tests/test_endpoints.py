@@ -21,7 +21,7 @@ class TestEndpoints(unittest.TestCase):
         response = self.client.get("/projects")
         self.assertEqual(200, response.status_code)
         # checking if project details are transferred appropriately
-        responseAsDict = loads(response.json())
+        responseAsDict = dict(response.json())
         self.assertEqual(1, len(responseAsDict))
         self.assertIsInstance(responseAsDict["1"], dict)
         self.assertEqual("Project 1", responseAsDict["1"]["name"])
@@ -35,12 +35,13 @@ class TestEndpoints(unittest.TestCase):
         self.assertIsNone(responseAsDict["1"]["updated_on"])
         self.assertIsNone(responseAsDict["1"]["documents"])
         self.assertIsNone(responseAsDict["1"]["contributors"])
+        
 
     def test_get(self):
         response = self.client.get("/project/1/info")
         self.assertEqual(200, response.status_code)
         # checking if project details are transferred appropriately
-        responseAsDict = loads(response.json())
+        responseAsDict = dict(response.json())
         self.assertEqual(10, len(responseAsDict))
         self.assertEqual("Project 1", responseAsDict["name"])
         self.assertEqual(1, responseAsDict["id"])
@@ -61,14 +62,14 @@ class TestEndpoints(unittest.TestCase):
         
     def test_update(self):
         requestBody = {"updated_by": "janedoe",
-                        "contributors": [2, 5]}
-        response = self.client.put("/project/1/info", json = requestBody)
+                        "description": "updated description"}
+        response = self.client.put("/project/1/info", json=requestBody)
 
         self.assertEqual(200, response.status_code)
-        responseAsDict = loads(response.json())
+        responseAsDict = dict(response.json())
         self.assertIsNotNone(responseAsDict["updated_on"])
         self.assertEqual("janedoe", responseAsDict["updated_by"])
-        self.assertEqual([2, 5], responseAsDict["contributors"])
+        self.assertEqual("updated description", responseAsDict["description"])
     
     def test_update_invalid_body_value(self):
         invalidRequestBody = {"fake_property": 5}
@@ -81,16 +82,16 @@ class TestEndpoints(unittest.TestCase):
 
     def test_update_non_existing_project(self):
         requestBody = {"updated_by": "janedoe",
-                        "contributors": [2, 5]} 
+                        "description": "updated description"} 
         response = self.client.put("/project/65/info", json = requestBody)
         self.assertEqual(404, response.status_code)
         self.assertEqual({"detail":"No project with id 65 found"},
                          response.json())    
 
     def delete_fail(self):
-        response = self.client.delete("/project/5")
+        response = self.client.delete("/project/5999")
         self.assertEqual(404, response.status_code)
-        self.assertEqual({"detail":"No project with id 5 found"},
+        self.assertEqual({"detail":"No project with id 5999 found"},
                          response.json())
         
     def delete(self):

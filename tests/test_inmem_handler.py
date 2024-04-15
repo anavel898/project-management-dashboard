@@ -1,7 +1,5 @@
 from datetime import datetime
 
-import json
-
 import unittest
 
 import src.services.inmem_project_handler as p
@@ -15,13 +13,13 @@ class TestProjectMethods(unittest.TestCase):
     def test_update_attribute(self):
         creationTime = datetime.now()
         projectInstance = p.Project(id=1, **self.test_project)
-        contributorsList = [2, 4]
-        projectInstance.update_attribute("contributors", contributorsList)
-        self.assertEqual([2, 4], projectInstance.contributors)
+        projectInstance.update_attribute("description", "updated description")
+        self.assertEqual("updated description", projectInstance.description)
         project_as_dict = projectInstance.model_dump()
         expected_dict = self.test_project.copy()
         expected_dict.update(
-            {"id": 1, "logo": None, "documents": None, "contributors": [2, 4],
+            {"id": 1, "description": "updated description",
+             "logo": None, "documents": None, "contributors": None,
              "updated_by": None, "updated_on": None,
              "created_on": creationTime
              }
@@ -63,54 +61,52 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
     def test_get_all(self):
         handlerInstance = p.InMemProjectHandler()
         handlerInstance.create(**self.test_project)
-        self.assertIsInstance(handlerInstance.get_all(), str)
-        self.assertIsInstance(json.loads(handlerInstance.get_all()), dict)
-
-        returnedAsDict = json.loads(handlerInstance.get_all())
-        self.assertEqual(1, len(returnedAsDict.items()))
-        returnedProject = returnedAsDict["1"]
-        # checking if attributes of converted projects match expected values
-        self.assertEqual(1, returnedProject["id"])
-        self.assertEqual("Project 1", returnedProject["name"])
-        self.assertEqual("avel", returnedProject["created_by"])
-        self.assertEqual("toy description 1", returnedProject["description"])
-        self.assertIsNone(returnedProject["updated_by"])
-        self.assertIsNone(returnedProject["updated_on"])
-        self.assertIsNone(returnedProject["logo"])
-        self.assertIsNone(returnedProject["documents"])
-        self.assertIsNone(returnedProject["contributors"])
+        returned = handlerInstance.get_all()
+        self.assertIsInstance(returned, dict)
+        self.assertEqual(1, len(returned))
+        returnedProject = returned[1]
+        # checking if attributes of returned projects match expected values
+        self.assertEqual(1, returnedProject.id)
+        self.assertEqual("Project 1", returnedProject.name)
+        self.assertEqual("avel", returnedProject.created_by)
+        self.assertEqual("toy description 1", returnedProject.description)
+        self.assertIsNone(returnedProject.updated_by)
+        self.assertIsNone(returnedProject.updated_on)
+        self.assertIsNone(returnedProject.logo)
+        self.assertIsNone(returnedProject.documents)
+        self.assertIsNone(returnedProject.contributors)
         
     def test_get_all_w_multiple(self):
         handlerInstance = p.InMemProjectHandler()
+        # setting up multiple projects
         handlerInstance.create(**self.test_project)
         handlerInstance.create("Project 2", "janedoe", "toy description 2")
         handlerInstance.create("Project 3", "avel", "toy description 3")
-
-        self.assertIsInstance(handlerInstance.get_all(), str)
-        self.assertIsInstance(json.loads(handlerInstance.get_all()), dict)
-
-        returnedAsDict = json.loads(handlerInstance.get_all())
-        self.assertEqual(3, len(returnedAsDict.items()))
+        # calling tested method
+        returned = handlerInstance.get_all()
+        # checking returned object
+        self.assertIsInstance(returned, dict)
+        self.assertEqual(3, len(returned))
 
     def test_get(self):
         handlerInstance = p.InMemProjectHandler()
         handlerInstance.create(**self.test_project)
 
-        returnedProject = json.loads(handlerInstance.get(1))
-        self.assertEqual(1, returnedProject["id"])
-        self.assertEqual("Project 1", returnedProject["name"])
-        self.assertEqual("avel", returnedProject["created_by"])
-        self.assertEqual("toy description 1", returnedProject["description"])
-        self.assertIsNone(returnedProject["updated_by"])
-        self.assertIsNone(returnedProject["updated_on"])
-        self.assertIsNone(returnedProject["logo"])
-        self.assertIsNone(returnedProject["documents"])
-        self.assertIsNone(returnedProject["contributors"])
+        returnedProject = handlerInstance.get(1)
+        self.assertEqual(1, returnedProject.id)
+        self.assertEqual("Project 1", returnedProject.name)
+        self.assertEqual("avel", returnedProject.created_by)
+        self.assertEqual("toy description 1", returnedProject.description)
+        self.assertIsNone(returnedProject.updated_by)
+        self.assertIsNone(returnedProject.updated_on)
+        self.assertIsNone(returnedProject.logo)
+        self.assertIsNone(returnedProject.documents)
+        self.assertIsNone(returnedProject.contributors)
 
     def test_get_failure(self):
         handlerInstance = p.InMemProjectHandler()
         self.assertRaises(p.HTTPException,
-                          handlerInstance.get, 3)
+                          handlerInstance.get, 565)
 
     def test_update_info(self):
         handlerInstance = p.InMemProjectHandler()

@@ -8,15 +8,12 @@ class ProjectHandlerInterface(ABC):
         self,
         name: str,
         createdBy: int,
-        description: str,
-        logo: str = None,
-        documents: str = None,
-        contributors: list[int] = None,
+        description: str
     ) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def get_all(self):
+    def get_all(self) -> dict[int:object]:
         raise NotImplementedError
 
     @abstractmethod
@@ -24,7 +21,7 @@ class ProjectHandlerInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def update_info(self, projectId: int, attributesToUpdate: dict) -> None:
+    def update_info(self, projectId: int, attributesToUpdate: dict) -> object:
         raise NotImplementedError
     
     @abstractmethod

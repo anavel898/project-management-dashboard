@@ -21,7 +21,7 @@ class ProjectHandlerInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def update_info(self, project_id: int, attributesToUpdate: dict) -> object:
+    def update_info(self, project_id: int, attributes_to_update: dict) -> object:
         raise NotImplementedError
     
     @abstractmethod

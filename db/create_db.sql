@@ -14,7 +14,7 @@ CREATE TABLE projects(
 	created_by varchar(10) NOT NULL,
 	created_on timestamp DEFAULT NOW(),
 	description varchar(500) NOT NULL,
-	updated_by integer,
+	updated_by varchar(10),
 	updated_on timestamp,
 	logo varchar(2048),
 	FOREIGN KEY (created_by) REFERENCES users(username)

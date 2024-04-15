@@ -3,14 +3,15 @@ from sqlalchemy import create_engine, select, delete, update
 from sqlalchemy.orm import Session
 from src.project_handler_interface import ProjectHandlerInterface
 from json import dumps
+from dotenv import load_dotenv
+import os
 
-
-# will move to env
-username= "anavel"
-password="123"
-host="localhost"
-port=5432 
-db="project_manager_test"
+load_dotenv()
+username= os.getenv("DB_USERNAME")
+password=os.getenv("DB_PASSWORD")
+host=os.getenv("DB_HOST")
+port=os.getenv("DB_PORT") 
+db=("DB_NAME")
 
 engine = create_engine(
     f"postgresql://{username}:{password}@{host}:{port}/{db}")
@@ -28,15 +29,12 @@ ProjectAccess = Base.classes.project_access
 class DbProjectHandler(ProjectHandlerInterface):
     def create(self,
                name: str,
-               createdBy: str,  # not consistent with the interface 
-               description: str,
-               logo: str = None,
-               documents: str = None,   # will remove this and contributors
-               contributors: list[int] = None) -> None:
+               created_by: str,
+               description: str):
         session = Session(engine)
         # add new project to Projects table
         new_project = Projects(name=name,
-                               created_by=createdBy,
+                               created_by=created_by,
                                description=description,
                                logo=logo)
         session.add(new_project)
@@ -44,7 +42,7 @@ class DbProjectHandler(ProjectHandlerInterface):
 
         # add new permission of type 'owner' to ProjectAccess
         session.add(ProjectAccess(project_id=new_project.id,
-                                  username=createdBy,
+                                  username=created_by,
                                   access_type="owner"))
         session.commit()
         session.close()

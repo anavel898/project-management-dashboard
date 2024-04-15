@@ -13,7 +13,7 @@ class ProjectHandlerInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_all(self) -> dict[int:object]:
+    def get_all(self) -> dict[int, object]:
         raise NotImplementedError
 
     @abstractmethod

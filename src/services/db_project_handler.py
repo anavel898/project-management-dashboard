@@ -103,7 +103,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         session = Session(engine)
         if session.get(Projects, project_id) is None:
             raise HTTPException(status_code=404,
-                                detail=f"No project with id {project_id} found.")
+                                detail=f"No project with id {project_id} found")
         attributes_to_update.update({"updated_on": datetime.now()})
         
         q = update(Projects).where(Projects.id == project_id).values(

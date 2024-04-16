@@ -32,7 +32,7 @@ class Documents(Base):
     project_id = Column(Integer,
                         ForeignKey('projects.id', ondelete='CASCADE'),
                         nullable=False)
-    added_by = Column(Integer, nullable=False)
+    added_by = Column(String(10), ForeignKey('users.username'), nullable=False)
     link_to_document = Column(String(2048), nullable=False)
 
 class ProjectAccess(Base):

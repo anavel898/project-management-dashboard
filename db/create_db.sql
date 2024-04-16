@@ -24,9 +24,10 @@ CREATE TABLE documents(
 	id SERIAL PRIMARY KEY,
 	name varchar(50) NOT NULL,
 	project_id integer NOT NULL, 
-	added_by integer NOT NULL,
+	added_by varchar(10) NOT NULL,
 	link_to_document varchar(2048) NOT NULL,
-	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+	FOREIGN KEY (added_by) REFERENCES users(username)
 );
 
 CREATE TYPE role AS ENUM('owner', 'participant');

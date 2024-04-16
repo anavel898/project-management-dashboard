@@ -10,33 +10,12 @@ from fastapi import HTTPException
 from src.services.project_manager_tables import Projects, ProjectAccess, Users, Documents
 
 
-# load_dotenv()
-# username= os.getenv("DB_USERNAME")
-# password=os.getenv("DB_PASSWORD")
-# host=os.getenv("DB_HOST")
-# port=os.getenv("DB_PORT") 
-# db=os.getenv("DB_NAME")
-
-# engine = create_engine(
-#     f"postgresql://{username}:{password}@{host}:{port}/{db}")
-
-# Base = automap_base()
-# # reflect the tables
-# Base.prepare(autoload_with=engine)
-
-# getting mapped classes
-# Projects = Base.classes.projects
-# Documents = Base.classes.documents
-# Users = Base.classes.users
-# ProjectAccess = Base.classes.project_access
-
 class DbProjectHandler(ProjectHandlerInterface):
     def create(self,
-               db: Session,
                name: str,
                created_by: str,
-               description: str):
-        #session = Session(engine)
+               description: str,
+               db: Session):
         # add new project to Projects table
         new_project = Projects(name=name,
                                created_by=created_by,
@@ -52,18 +31,21 @@ class DbProjectHandler(ProjectHandlerInterface):
         db.close()
 
 
-    def get(self, db: Session, project_id: int):
-        #session = Session(engine)
+    def get(self, project_id: int, db: Session):
         project = db.get(Projects, project_id)
+        # if project doesn't exist, raise exception
         if project is None:
             raise HTTPException(status_code=404,
                                 detail=f"No project with id {project_id} found")
+        # retrieve documents associated to the project
         docs = db.execute(
             select(Documents.id, Documents.name).where(
                 Documents.project_id==project_id
             )
         )
         docs_list = [{"id": row[0], "name": row[1]} for row in docs.all()]
+        
+        # retrieve full list of project contributors
         contributors = db.execute(
             select(ProjectAccess.username).where(
                 ProjectAccess.project_id == project_id
@@ -79,41 +61,37 @@ class DbProjectHandler(ProjectHandlerInterface):
                                updated_by=project.updated_by,
                                updated_on=project.updated_on,
                                logo=project.logo,
-                               documents=docs_list,
+                               documents= None if docs_list == [] else docs_list,
                                contributors=contributors_list)
         return project_repr
 
     
-    def get_all(self):
-        # session = Session(engine)
-        # all_project_ids = session.execute(select(Projects.id))
-        # all_projects = dict()
-        # for row in all_project_ids:
-        #     curr_project = self.get(row[0])
-        #     all_projects[row[0]] = curr_project
-        # return all_projects
-        pass
+    def get_all(self, db: Session):
+        all_project_ids = db.execute(select(Projects.id))
+        all_projects = dict()
+        for row in all_project_ids:
+            curr_project = self.get(row[0], db)
+            all_projects[row[0]] = curr_project
+        return all_projects
 
     
-    def delete(self, project_id: int):
-        # session = Session(engine)
-        # session.execute(delete(Projects).where(Projects.id == project_id))
-        # session.commit()
-        # session.close()
-        pass
+    def delete(self, project_id: int, db: Session):
+        db.execute(delete(Projects).where(Projects.id == project_id))
+        db.commit()
+        db.close()
     
     def update_info(self, project_id: int,
-                    attributes_to_update: dict):
-        # session = Session(engine)
-        # if session.get(Projects, project_id) is None:
-        #     raise HTTPException(status_code=404,
-        #                         detail=f"No project with id {project_id} found")
-        # attributes_to_update.update({"updated_on": datetime.now()})
+                    attributes_to_update: dict,
+                    db: Session):
+        if db.get(Projects, project_id) is None:
+            raise HTTPException(status_code=404,
+                                detail=f"No project with id {project_id} found")
+        attributes_to_update.update({"updated_on": datetime.now()})
         
-        # q = update(Projects).where(Projects.id == project_id).values(
-        #         attributes_to_update
-        # )
-        # session.execute(q)
-        # session.commit()
-        # session.close()
-        return self.get(project_id)
+        q = update(Projects).where(Projects.id == project_id).values(
+                attributes_to_update
+        )
+        db.execute(q)
+        db.commit()
+        db.close()
+        return self.get(project_id, db)

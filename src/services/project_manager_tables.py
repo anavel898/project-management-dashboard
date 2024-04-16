@@ -15,7 +15,9 @@ class Projects(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
-    created_by = Column(String(10), ForeignKey('users.username'), nullable=False)
+    created_by = Column(String(10),
+                        ForeignKey('users.username'),
+                        nullable=False)
     created_on = Column(DateTime, server_default=text("(datetime('now'))"))
     description = Column(String(500), nullable=False)
     updated_by = Column(String(10))
@@ -27,14 +29,20 @@ class Documents(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(50), nullable=False)
-    project_id = Column(Integer, ForeignKey('projects.id', ondelete='CASCADE'), nullable=False)
+    project_id = Column(Integer,
+                        ForeignKey('projects.id', ondelete='CASCADE'),
+                        nullable=False)
     added_by = Column(Integer, nullable=False)
     link_to_document = Column(String(2048), nullable=False)
 
 class ProjectAccess(Base):
     __tablename__ = 'project_access'
 
-    project_id = Column(Integer, ForeignKey('projects.id', ondelete='CASCADE'), primary_key=True)
-    username = Column(String(10), ForeignKey('users.username', ondelete='CASCADE'), primary_key=True)
+    project_id = Column(Integer,
+                        ForeignKey('projects.id', ondelete='CASCADE'),
+                        primary_key=True)
+    username = Column(String(10),
+                      ForeignKey('users.username', ondelete='CASCADE'),
+                      primary_key=True)
     access_type = Column(String(10))
     is_valid = Column(Boolean, default=True)

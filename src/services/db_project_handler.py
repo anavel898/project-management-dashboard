@@ -1,9 +1,6 @@
-from sqlalchemy.ext.automap import automap_base
-from sqlalchemy import create_engine, select, delete, update
+from sqlalchemy import select, delete, update
 from sqlalchemy.orm import Session
 from src.project_handler_interface import ProjectHandlerInterface
-from dotenv import load_dotenv
-import os
 from src.routers.project.schemas import Project
 from datetime import datetime
 from fastapi import HTTPException

@@ -6,8 +6,12 @@ from datetime import datetime
 from fastapi import HTTPException
 from src.services.project_manager_tables import Projects, ProjectAccess, Users, Documents
 
-
 class DbProjectHandler(ProjectHandlerInterface):
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(DbProjectHandler, cls).__new__(cls)
+        return cls.instance
+
     def create(self,
                name: str,
                created_by: str,

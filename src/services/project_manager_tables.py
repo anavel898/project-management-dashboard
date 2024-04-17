@@ -1,6 +1,10 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.sql import text
-from src.services.database import Base
+from sqlalchemy.ext.declarative import declarative_base
+#from src.services.database import Base
+
+
+Base = declarative_base()
 
 class Users(Base):
     __tablename__ = 'users'

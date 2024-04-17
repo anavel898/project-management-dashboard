@@ -3,11 +3,11 @@ import unittest
 from fastapi.testclient import TestClient
 
 #from src.routers.project.projects import get_db
-from src.dependecies import get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from src.services.database import Base
+from src.dependecies import get_db
+from src.services.project_manager_tables import Base
 from src.main import app
 
 # SQLALCHEMY_DATABASE_URL = "sqlite://"
@@ -34,6 +34,13 @@ from src.main import app
 
 
 # app.dependency_overrides[get_db] = override_get_db
+
+# def get_db_override():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 class TestEndpoints(unittest.TestCase):
     

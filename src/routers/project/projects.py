@@ -9,7 +9,7 @@ from src.services.project_manager_tables import Base
 from src.dependecies import get_db
 
 router = APIRouter()
-project_handler = createHandler()
+# project_handler = createHandler()
 #Base.metadata.create_all(bind=engine)
 
 # def get_db():
@@ -20,15 +20,15 @@ project_handler = createHandler()
 #         db.close()
 
 @router.get("/projects", response_model=list[Project])
-async def get_all_projects(db: Session = Depends(get_db)):
-    try:
+async def get_all_projects(db: Session = Depends(get_db), project_handler: object = Depends(createHandler)):
+    try:    
         return project_handler.get_all(db)
     except HTTPException as ex:
         raise ex
 
 
 @router.post("/projects", response_model=Project)
-async def make_new_project(new_project: NewProject, db: Session = Depends(get_db)):
+async def make_new_project(new_project: NewProject, db: Session = Depends(get_db), project_handler: object = Depends(createHandler)):
     try:
         return project_handler.create(
             new_project.name,
@@ -40,7 +40,7 @@ async def make_new_project(new_project: NewProject, db: Session = Depends(get_db
         raise ex
 
 @router.get("/project/{project_id}/info", response_model=Project)
-async def get_project_details(project_id: int, db: Session = Depends(get_db)):
+async def get_project_details(project_id: int, db: Session = Depends(get_db), project_handler: object = Depends(createHandler)):
     try:
         return project_handler.get(project_id, db)
     except HTTPException as ex:
@@ -50,7 +50,7 @@ async def get_project_details(project_id: int, db: Session = Depends(get_db)):
 @router.put("/project/{project_id}/info", response_model=Project)
 async def update_project_details(project_id: int,
                                  new_info: UpdateProject,
-                                 db: Session = Depends(get_db)):
+                                 db: Session = Depends(get_db), project_handler: object = Depends(createHandler)):
     if new_info.model_fields_set == set("updated_by"):
         raise HTTPException(
             status_code=400,
@@ -65,7 +65,7 @@ async def update_project_details(project_id: int,
 
 
 @router.delete("/project/{project_id}")
-async def delete_project(project_id: int, db: Session = Depends(get_db)):
+async def delete_project(project_id: int, db: Session = Depends(get_db), project_handler: object = Depends(createHandler)):
     try:
         project_handler.delete(project_id, db)
         return status.HTTP_204_NO_CONTENT

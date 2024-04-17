@@ -10,33 +10,48 @@ from sqlalchemy.pool import StaticPool
 from src.services.database import Base
 from src.main import app
 
-SQLALCHEMY_DATABASE_URL = "sqlite://"
+# SQLALCHEMY_DATABASE_URL = "sqlite://"
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool
-)
-TestingSessionLocal = sessionmaker(autocommit=False,
-                                   autoflush=False,
-                                   bind=engine)
-
-
-Base.metadata.create_all(bind=engine)
+# engine = create_engine(
+#     SQLALCHEMY_DATABASE_URL,
+#     connect_args={"check_same_thread": False},
+#     poolclass=StaticPool
+# )
+# TestingSessionLocal = sessionmaker(autocommit=False,
+#                                    autoflush=False,
+#                                    bind=engine)
 
 
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
+# Base.metadata.create_all(bind=engine)
 
 
-app.dependency_overrides[get_db] = override_get_db
+# def override_get_db():
+#     try:
+#         db = TestingSessionLocal()
+#         yield db
+#     finally:
+#         db.close()
+
+
+# app.dependency_overrides[get_db] = override_get_db
 
 class TestEndpoints(unittest.TestCase):
-    client = TestClient(app)
+    
+    @classmethod
+    def setUpClass(cls) -> None:
+        engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
+        )
+        TestingSessionLocal = sessionmaker(autocommit=False,
+                                   autoflush=False,
+                                   bind=engine)
+        Base.metadata.create_all(bind=engine)
+        app.dependency_overrides[get_db] = lambda: TestingSessionLocal() #override_get_db
+        cls.client = TestClient(app)
+        return super().setUpClass()
+
 
     def test_create(self):
         requestBody = {"name": "Project 1",

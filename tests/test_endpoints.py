@@ -2,8 +2,8 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from src.routers.project.projects import get_db
-
+#from src.routers.project.projects import get_db
+from src.dependecies import get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool

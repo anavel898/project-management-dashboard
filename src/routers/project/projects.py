@@ -4,19 +4,20 @@ from starlette import status
 from sqlalchemy.orm import Session
 from src.project_handler_factory import createHandler
 from src.routers.project.schemas import NewProject, UpdateProject, Project
-from src.services.database import SessionLocal, engine
+from src.services.database import engine#, SessionLocal
 from src.services.project_manager_tables import Base
+from src.dependecies import get_db
 
 router = APIRouter()
 project_handler = createHandler()
 Base.metadata.create_all(bind=engine)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 @router.get("/projects", response_model=list[Project])
 async def get_all_projects(db: Session = Depends(get_db)):

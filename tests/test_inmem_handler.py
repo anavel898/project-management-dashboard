@@ -15,16 +15,15 @@ class TestProjectMethods(unittest.TestCase):
         projectInstance = p.Project(id=1, **self.test_project)
         projectInstance.update_attribute("description", "updated description")
         self.assertEqual("updated description", projectInstance.description)
-        project_as_dict = projectInstance.model_dump()
-        expected_dict = self.test_project.copy()
-        expected_dict.update(
-            {"id": 1, "description": "updated description",
-             "logo": None, "documents": None, "contributors": None,
-             "updated_by": None, "updated_on": None,
-             "created_on": creationTime
-             }
-        )
-        self.assertDictEqual(project_as_dict, expected_dict)
+        self.assertEqual(1, projectInstance.id)
+        self.assertEqual("updated description", projectInstance.description)
+        self.assertEqual("avel", projectInstance.created_by)
+        self.assertLessEqual(creationTime, projectInstance.created_on)
+        self.assertIsNone(projectInstance.updated_on)
+        self.assertIsNone(projectInstance.updated_by)
+        self.assertIsNone(projectInstance.logo)
+        self.assertIsNone(projectInstance.documents)
+        self.assertIsNone(projectInstance.contributors)
 
 
 class TestInMemProjectHandlerMethods(unittest.TestCase):

@@ -51,6 +51,7 @@ class InMemProjectHandler(ProjectHandlerInterface):
                              name=name,
                              created_by=created_by,
                              description=description,
+                             documents=[],
                              contributors=[created_by])
         self.all_projects[new_project_id] = newProject
         self.projects_number += 1

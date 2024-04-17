@@ -10,7 +10,7 @@ class NewProject(BaseModel):
     description: str = Field(max_length=500)
 
 
-class UpdatableData(BaseModel):
+class UpdateProject(BaseModel):
     model_config = ConfigDict(extra="forbid")
     # updated_by will be inferred automatically when auth logic is implemented
     updated_by: str

@@ -55,7 +55,7 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
         self.assertIsNone(created_project.updated_on)
         self.assertIsNone(created_project.updated_by)
         self.assertIsNone(created_project.logo)
-        self.assertIsNone(created_project.documents)
+        self.assertEqual([], created_project.documents)
         self.assertEqual(["avel"], created_project.contributors)
     
     def test_get_all(self):
@@ -73,7 +73,7 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
         self.assertIsNone(returnedProject.updated_by)
         self.assertIsNone(returnedProject.updated_on)
         self.assertIsNone(returnedProject.logo)
-        self.assertIsNone(returnedProject.documents)
+        self.assertEqual([], returnedProject.documents)
         self.assertEqual(["avel"], returnedProject.contributors)
         
     def test_get_all_w_multiple(self):
@@ -100,7 +100,7 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
         self.assertIsNone(returnedProject.updated_by)
         self.assertIsNone(returnedProject.updated_on)
         self.assertIsNone(returnedProject.logo)
-        self.assertIsNone(returnedProject.documents)
+        self.assertEqual([], returnedProject.documents)
         self.assertEqual(["avel"], returnedProject.contributors)
 
     def test_get_failure(self):

@@ -4,8 +4,6 @@ from dotenv import load_dotenv
 import os
 from src.services.project_manager_tables import Base
 
-#Base.metadata.create_all(bind=engine)
-#Base = declarative_base()
 def get_db():
     db_conn = DbConnector()
     engine = db_conn.engine
@@ -25,8 +23,6 @@ class DbConnector():
     def __init__(self):    
         load_dotenv()
         SQLALCHEMY_DATABASE_URL = os.getenv("DB_CONNECTION_STRING")
-
         self.engine = create_engine(
             SQLALCHEMY_DATABASE_URL)
-        
         Base.metadata.create_all(bind=self.engine)

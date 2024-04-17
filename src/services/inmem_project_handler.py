@@ -30,6 +30,10 @@ class InMemProjectHandler(ProjectHandlerInterface):
     Implements only the methods necessary to implement endpoints specified
     by the in memory business logic implementation step.
     """
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(InMemProjectHandler, cls).__new__(cls)
+        return cls.instance
 
     def __init__(self) -> None:
         # {ID: Project} dictionary storing all projects managed by the handler
@@ -55,6 +59,7 @@ class InMemProjectHandler(ProjectHandlerInterface):
                              contributors=[created_by])
         self.all_projects[new_project_id] = newProject
         self.projects_number += 1
+        return self.get(new_project_id)
 
     def get_all(self, db: object = None) -> dict:
         return self.all_projects

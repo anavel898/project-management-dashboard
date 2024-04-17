@@ -10,11 +10,11 @@ class ProjectHandlerInterface(ABC):
         created_by: str,
         description: str,
         db: object
-    ) -> None:
+    ) -> object:
         raise NotImplementedError
 
     @abstractmethod
-    def get_all(self, db: object) -> dict[int, object]:
+    def get_all(self, db: object) -> list[object]:
         raise NotImplementedError
 
     @abstractmethod

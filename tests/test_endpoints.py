@@ -1,46 +1,11 @@
 import unittest
-
 from fastapi.testclient import TestClient
-
-#from src.routers.project.projects import get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from src.dependecies import get_db
 from src.services.project_manager_tables import Base
 from src.main import app
-
-# SQLALCHEMY_DATABASE_URL = "sqlite://"
-
-# engine = create_engine(
-#     SQLALCHEMY_DATABASE_URL,
-#     connect_args={"check_same_thread": False},
-#     poolclass=StaticPool
-# )
-# TestingSessionLocal = sessionmaker(autocommit=False,
-#                                    autoflush=False,
-#                                    bind=engine)
-
-
-# Base.metadata.create_all(bind=engine)
-
-
-# def override_get_db():
-#     try:
-#         db = TestingSessionLocal()
-#         yield db
-#     finally:
-#         db.close()
-
-
-# app.dependency_overrides[get_db] = override_get_db
-
-# def get_db_override():
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
 
 class TestEndpoints(unittest.TestCase):
     
@@ -55,7 +20,7 @@ class TestEndpoints(unittest.TestCase):
                                    autoflush=False,
                                    bind=engine)
         Base.metadata.create_all(bind=engine)
-        app.dependency_overrides[get_db] = lambda: TestingSessionLocal() #override_get_db
+        app.dependency_overrides[get_db] = lambda: TestingSessionLocal()
         cls.client = TestClient(app)
         return super().setUpClass()
 

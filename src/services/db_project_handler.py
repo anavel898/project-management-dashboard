@@ -1,4 +1,4 @@
-from sqlalchemy import select, delete, update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from src.project_handler_interface import ProjectHandlerInterface
 from src.routers.project.schemas import Project
@@ -7,11 +7,6 @@ from fastapi import HTTPException
 from src.services.project_manager_tables import Projects, ProjectAccess, Users, Documents
 
 class DbProjectHandler(ProjectHandlerInterface):
-    def __new__(cls):
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(DbProjectHandler, cls).__new__(cls)
-        return cls.instance
-
     def create(self,
                name: str,
                created_by: str,

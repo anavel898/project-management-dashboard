@@ -41,8 +41,8 @@ async def login_for_access_token(
     return Token(access_token=access_token, token_type="bearer")
 
 @auth_router.post("/auth")
-async def create_new_user(new_user: User,
-                          db: Annotated[Session, Depends(get_db)]):
+async def create_new_user(db: Annotated[Session, Depends(get_db)],
+                          new_user: User = Depends(User.as_form),):
     # will call function to write stuff into the database
     try:
         write_new_user(db, new_user)

@@ -37,15 +37,18 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = get_user(db=get_db(), username=username)
+    db=SessionLocal()
+    user = get_user(db=db, username=username)
     if user is None:
         raise credentials_exception
-    return user
+    return user.username
 
 
 @project_router.get("/projects", response_model=dict[int, Project])
 async def get_all_projects(db: Session = Depends(get_db), user_calling: str = Depends(get_current_user)):
     try:
+        print("DA LI JE IDENTIFIKOVAO USER-A?")
+        print(user_calling)
         return project_handler.get_all(db)
     except HTTPException as ex:
         raise ex
@@ -56,11 +59,13 @@ async def make_new_project(new_project: NewProject,
                            db: Session = Depends(get_db),
                            user_calling: str = Depends(get_current_user)):
     try:
+        print("DA LI JE IDENTIFIKOVAO USER-A?")
+        print(user_calling)
         project_handler.create(
-            new_project.name,
-            new_project.created_by,
-            new_project.description,
-            db
+            name=new_project.name,
+            created_by=user_calling,
+            description=new_project.description,
+            db=db
         )
         return status.HTTP_201_CREATED
     except HTTPException as ex:
@@ -81,15 +86,15 @@ async def update_project_details(project_id: int,
                                  new_info: UpdatableData,
                                  db: Session = Depends(get_db),
                                  user_calling: str = Depends(get_current_user)):
-    if new_info.model_fields_set == set("updated_by"):
+    if new_info.model_fields_set == set():
         raise HTTPException(
             status_code=400,
             detail="No project properties were specified in the request body"
         )
+    for_update = new_info.model_dump(exclude_unset=True)
+    for_update.update({"updated_by":  user_calling})
     try:
-        return project_handler.update_info(project_id,
-                                   new_info.model_dump(exclude_unset=True),
-                                   db)
+        return project_handler.update_info(project_id, for_update, db)
     except HTTPException as ex:
         raise ex
 
@@ -102,4 +107,15 @@ async def delete_project(project_id: int,
         project_handler.delete(project_id, db)
         return status.HTTP_204_NO_CONTENT
     except HTTPException as ex:
-        raise ex   
+        raise ex
+    
+
+@project_router.post("/project/{project_id}/invite")
+async def add_collaborator(project_id: int,
+                           user: str,
+                           db: Session = Depends(get_db),
+                           user_calling: str = Depends(get_current_user)):
+    try:
+        project_handler.grant_access(project_id, user, db)
+    except HTTPException as ex:
+        raise ex

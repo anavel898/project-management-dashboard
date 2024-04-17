@@ -92,3 +92,11 @@ class DbProjectHandler(ProjectHandlerInterface):
         db.commit()
         db.close()
         return self.get(project_id, db)
+    
+    def grant_access(self, project_id: int, new_user: str, db: Session):
+        new_access = ProjectAccess(project_id=project_id,
+                                   username=new_user,
+                                   access_type='participant')
+        db.add(new_access)
+        db.commit()
+        db.close()

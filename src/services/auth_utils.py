@@ -31,8 +31,6 @@ def get_user(db: Session, username: str):
 
 def write_new_user(db: Session, user: User):
     hashed_passw = get_password_hash(user.password)
-    print('ovo je hashed password')
-    print(hashed_passw)
     passw_byte_version = bytes(hashed_passw, encoding="utf-8")
     new_user = Users(username=user.username,
                      name=user.full_name,

@@ -47,8 +47,6 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 @project_router.get("/projects", response_model=dict[int, Project])
 async def get_all_projects(db: Session = Depends(get_db), user_calling: str = Depends(get_current_user)):
     try:
-        print("DA LI JE IDENTIFIKOVAO USER-A?")
-        print(user_calling)
         return project_handler.get_all(db)
     except HTTPException as ex:
         raise ex
@@ -59,8 +57,6 @@ async def make_new_project(new_project: NewProject,
                            db: Session = Depends(get_db),
                            user_calling: str = Depends(get_current_user)):
     try:
-        print("DA LI JE IDENTIFIKOVAO USER-A?")
-        print(user_calling)
         project_handler.create(
             name=new_project.name,
             created_by=user_calling,

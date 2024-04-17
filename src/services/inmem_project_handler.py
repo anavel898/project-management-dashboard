@@ -30,6 +30,10 @@ class InMemProjectHandler(ProjectHandlerInterface):
     Implements only the methods necessary to implement endpoints specified
     by the in memory business logic implementation step.
     """
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(InMemProjectHandler, cls).__new__(cls)
+        return cls.instance
 
     def __init__(self) -> None:
         # {ID: Project} dictionary storing all projects managed by the handler
@@ -42,21 +46,25 @@ class InMemProjectHandler(ProjectHandlerInterface):
         self,
         name: str,
         created_by: str,
-        description: str
+        description: str,
+        db: object = None
     ) -> None:
         new_project_id = self.projects_number + 1
         
         newProject = Project(id=new_project_id,
                              name=name,
                              created_by=created_by,
-                             description=description)
+                             description=description,
+                             documents=[],
+                             contributors=[created_by])
         self.all_projects[new_project_id] = newProject
         self.projects_number += 1
+        return self.get(new_project_id)
 
-    def get_all(self) -> dict:
+    def get_all(self, db: object = None) -> dict:
         return self.all_projects
 
-    def get(self, project_id: int) -> Project:
+    def get(self, project_id: int, db = None) -> Project:
         if self.all_projects.get(project_id) is None:
             raise HTTPException(
                 status_code=404,
@@ -66,7 +74,8 @@ class InMemProjectHandler(ProjectHandlerInterface):
 
     def update_info(self,
                     project_id: int,
-                    attributes_to_update: dict) -> Project:
+                    attributes_to_update: dict,
+                    db: object = None) -> Project:
         if self.all_projects.get(project_id) is None:
             raise HTTPException(
                 status_code=404,
@@ -80,7 +89,7 @@ class InMemProjectHandler(ProjectHandlerInterface):
                                                        update_time)
         return self.all_projects[project_id]
 
-    def delete(self, project_id: int):
+    def delete(self, project_id: int, db: object = None):
         try:
             del self.all_projects[project_id]
         except KeyError:

@@ -4,7 +4,7 @@ from .routers.project import projects
 
 app = FastAPI()
 
-app.include_router(projects.router)
+app.include_router(projects.project_router)
 
 
 @app.get("/")

@@ -30,17 +30,24 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
     test_project = {"name": "Project 1",
                  "created_by": "avel",
                  "description": "toy description 1"}
+    
+    handlerInstance = p.InMemProjectHandler()
 
+    def setUp(self):
+        self.handlerInstance.reset()
+        #return super().setUpClass()
+    
     def test_handler_constructor(self):
         handlerInstance = p.InMemProjectHandler()
         all_projects = handlerInstance.all_projects
         self.assertEqual(dict(), all_projects)
         self.assertEqual(0, handlerInstance.projects_number)
+        self.assertTrue(handlerInstance.initialized)
 
     def test_handler_create(self):
         handlerInstance = p.InMemProjectHandler()
         timestamp = datetime.now()
-        handlerInstance.create(**self.test_project)
+        self.handlerInstance.create(**self.test_project)
 
         self.assertEqual(1, handlerInstance.projects_number)
         created_project = handlerInstance.all_projects[1]
@@ -61,9 +68,9 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
         handlerInstance = p.InMemProjectHandler()
         handlerInstance.create(**self.test_project)
         returned = handlerInstance.get_all()
-        self.assertIsInstance(returned, dict)
+        self.assertIsInstance(returned, list)
         self.assertEqual(1, len(returned))
-        returnedProject = returned[1]
+        returnedProject = returned[0]
         # checking if attributes of returned projects match expected values
         self.assertEqual(1, returnedProject.id)
         self.assertEqual("Project 1", returnedProject.name)
@@ -79,19 +86,19 @@ class TestInMemProjectHandlerMethods(unittest.TestCase):
         handlerInstance = p.InMemProjectHandler()
         # setting up multiple projects
         handlerInstance.create(**self.test_project)
-        handlerInstance.create("Project 2", "janedoe", "toy description 2")
-        handlerInstance.create("Project 3", "avel", "toy description 3")
+        self.handlerInstance.create("Project 2", "janedoe", "toy description 2")
+        self.handlerInstance.create("Project 3", "avel", "toy description 3")
         # calling tested method
         returned = handlerInstance.get_all()
         # checking returned object
-        self.assertIsInstance(returned, dict)
+        self.assertIsInstance(returned, list)
         self.assertEqual(3, len(returned))
 
     def test_get(self):
         handlerInstance = p.InMemProjectHandler()
         handlerInstance.create(**self.test_project)
 
-        returnedProject = handlerInstance.get(1)
+        returnedProject = self.handlerInstance.get(1)
         self.assertEqual(1, returnedProject.id)
         self.assertEqual("Project 1", returnedProject.name)
         self.assertEqual("avel", returnedProject.created_by)

@@ -15,14 +15,17 @@ def get_db():
         db.close()
 
 class DbConnector():
+    initialized = False
     def __new__(cls):
         if not hasattr(cls, 'instance'):
             cls.instance = super(DbConnector, cls).__new__(cls)
         return cls.instance
     
-    def __init__(self):    
-        load_dotenv()
-        SQLALCHEMY_DATABASE_URL = os.getenv("DB_CONNECTION_STRING")
-        self.engine = create_engine(
-            SQLALCHEMY_DATABASE_URL)
-        Base.metadata.create_all(bind=self.engine)
+    def __init__(self):
+        if not self.initialized:
+            load_dotenv()
+            SQLALCHEMY_DATABASE_URL = os.getenv("DB_CONNECTION_STRING")
+            self.engine = create_engine(
+                SQLALCHEMY_DATABASE_URL)
+            Base.metadata.create_all(bind=self.engine)
+            self.initialized = True

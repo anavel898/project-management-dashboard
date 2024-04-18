@@ -1,6 +1,9 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, LargeBinary
 from sqlalchemy.sql import text
-from src.services.database import Base
+from sqlalchemy.ext.declarative import declarative_base
+
+
+Base = declarative_base()
 
 class Users(Base):
     __tablename__ = 'users'
@@ -46,3 +49,4 @@ class ProjectAccess(Base):
                       primary_key=True)
     access_type = Column(String(10))
     is_valid = Column(Boolean, default=True)
+    

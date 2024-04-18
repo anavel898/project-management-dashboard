@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from src.services.database import SessionLocal
 from .routers.project import projects
 from .routers.auth import auth
 

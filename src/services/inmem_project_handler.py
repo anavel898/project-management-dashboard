@@ -30,13 +30,23 @@ class InMemProjectHandler(ProjectHandlerInterface):
     Implements only the methods necessary to implement endpoints specified
     by the in memory business logic implementation step.
     """
+    initialized = False
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(InMemProjectHandler, cls).__new__(cls)
+        return cls.instance
 
     def __init__(self) -> None:
+        if not self.initialized:
         # {ID: Project} dictionary storing all projects managed by the handler
-        self.all_projects = dict()
+            self.all_projects = dict()
         # tracks number of projects managed by the handler and simulates 
         # auto-incremented ids in database
-        self.projects_number = 0
+            self.projects_number = 0
+            self.initialized = True
+    
+    def reset(self):
+        self.initialized = False
 
     def create(
         self,
@@ -51,12 +61,17 @@ class InMemProjectHandler(ProjectHandlerInterface):
                              name=name,
                              created_by=created_by,
                              description=description,
+                             documents=[],
                              contributors=[created_by])
         self.all_projects[new_project_id] = newProject
         self.projects_number += 1
+        return self.get(new_project_id)
 
     def get_all(self, db: object = None) -> dict:
-        return self.all_projects
+        projects_as_list = []
+        for project in self.all_projects.values():
+            projects_as_list.append(project)
+        return projects_as_list
 
     def get(self, project_id: int, db = None) -> Project:
         if self.all_projects.get(project_id) is None:
@@ -90,4 +105,5 @@ class InMemProjectHandler(ProjectHandlerInterface):
             raise HTTPException(status_code=404,
                                 detail=f"No project with id {project_id} found"
                                 )
-        
+
+

@@ -4,24 +4,13 @@ from starlette import status
 
 from sqlalchemy.orm import Session
 from src.project_handler_factory import createHandler
-from src.routers.project.schemas import NewProject, UpdatableData, Project
-from src.services.database import SessionLocal, engine
-from src.services.project_manager_tables import Base
+from src.routers.project.schemas import NewProject, UpdateProject, Project
+from src.dependecies import get_db
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer
 from src.services.auth_utils import SECRET_KEY, ALGORITHM, get_user
 
 project_router = APIRouter()
-project_handler = createHandler()
-Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
@@ -37,16 +26,18 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    db=SessionLocal()
+    db = get_db()
     user = get_user(db=db, username=username)
     if user is None:
         raise credentials_exception
     return user.username
 
 
-@project_router.get("/projects", response_model=dict[int, Project])
-async def get_all_projects(db: Session = Depends(get_db), user_calling: str = Depends(get_current_user)):
-    try:
+@project_router.get("/projects", response_model=list[Project])
+async def get_all_projects(db: Session = Depends(get_db),
+                           user_calling: str = Depends(get_current_user),
+                           project_handler: object = Depends(createHandler)):
+    try:    
         return project_handler.get_all(db)
     except HTTPException as ex:
         raise ex
@@ -55,7 +46,8 @@ async def get_all_projects(db: Session = Depends(get_db), user_calling: str = De
 @project_router.post("/projects")
 async def make_new_project(new_project: NewProject,
                            db: Session = Depends(get_db),
-                           user_calling: str = Depends(get_current_user)):
+                           user_calling: str = Depends(get_current_user),
+                           project_handler: object = Depends(createHandler)):
     try:
         project_handler.create(
             name=new_project.name,
@@ -63,14 +55,14 @@ async def make_new_project(new_project: NewProject,
             description=new_project.description,
             db=db
         )
-        return status.HTTP_201_CREATED
     except HTTPException as ex:
         raise ex
 
 @project_router.get("/project/{project_id}/info", response_model=Project)
 async def get_project_details(project_id: int,
                               db: Session = Depends(get_db),
-                              user_calling: str = Depends(get_current_user)):
+                              user_calling: str = Depends(get_current_user),
+                              project_handler: object = Depends(createHandler)):
     try:
         return project_handler.get(project_id, db)
     except HTTPException as ex:
@@ -79,9 +71,10 @@ async def get_project_details(project_id: int,
 
 @project_router.put("/project/{project_id}/info", response_model=Project)
 async def update_project_details(project_id: int,
-                                 new_info: UpdatableData,
+                                 new_info: UpdateProject,
                                  db: Session = Depends(get_db),
-                                 user_calling: str = Depends(get_current_user)):
+                                 user_calling: str = Depends(get_current_user),
+                                 project_handler: object = Depends(createHandler)):
     if new_info.model_fields_set == set():
         raise HTTPException(
             status_code=400,
@@ -98,7 +91,8 @@ async def update_project_details(project_id: int,
 @project_router.delete("/project/{project_id}")
 async def delete_project(project_id: int,
                          db: Session = Depends(get_db),
-                         user_calling: str = Depends(get_current_user)):
+                         user_calling: str = Depends(get_current_user),
+                         project_handler: object = Depends(createHandler)):
     try:
         project_handler.delete(project_id, db)
         return status.HTTP_204_NO_CONTENT
@@ -110,7 +104,8 @@ async def delete_project(project_id: int,
 async def add_collaborator(project_id: int,
                            user: str,
                            db: Session = Depends(get_db),
-                           user_calling: str = Depends(get_current_user)):
+                           user_calling: str = Depends(get_current_user),
+                           project_handler: object = Depends(createHandler)):
     try:
         project_handler.grant_access(project_id, user, db)
     except HTTPException as ex:

@@ -1,5 +1,7 @@
 FROM python:3.10.14-slim
 
+RUN apt-get update && apt-get -y install libpq-dev gcc && pip install psycopg2
+
 WORKDIR /code
 
 COPY ./requirements.txt /code/requirements.txt

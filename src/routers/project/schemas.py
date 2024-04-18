@@ -8,7 +8,7 @@ class NewProject(BaseModel):
     description: str = Field(max_length=500)
 
 
-class UpdatableData(BaseModel):
+class UpdateProject(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(None, max_length=100)
     description: str = Field(None, max_length=500)

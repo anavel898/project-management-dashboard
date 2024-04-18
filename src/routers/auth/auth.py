@@ -4,23 +4,12 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from starlette import status
 from sqlalchemy.orm import Session
-from src.project_handler_factory import createHandler
-from src.services.database import SessionLocal, engine
-from src.services.project_manager_tables import Base
+from src.dependecies import get_db
 from src.routers.auth.schemas import Token, User
 from src.services.auth_utils import authenticate_user, write_new_user, create_access_token
 
 
 auth_router = APIRouter()
-project_handler = createHandler()
-Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @auth_router.post("/login")
 async def login_for_access_token(

@@ -61,11 +61,10 @@ class DbProjectHandler(ProjectHandlerInterface):
             return project_repr
 
     
-    def get_all(self, db: Session):
-        all_project_ids = db.execute(select(Projects.id))
+    def get_all(self, db: Session, accessible_projects: list[int]):
         all_projects = list()
-        for row in all_project_ids:
-            curr_project = self.get(row[0], db)
+        for project_id in accessible_projects:
+            curr_project = self.get(int(project_id), db)
             all_projects.append(curr_project)
         return all_projects
 
@@ -104,3 +103,19 @@ class DbProjectHandler(ProjectHandlerInterface):
                                 detail=f"No project with id {project_id} found")
         else:
             return project
+        
+    @staticmethod
+    def get_project_privileges(db: Session, username: str):
+        owned_projects = db.execute(select(ProjectAccess.project_id)
+                                             .where((ProjectAccess.username == username) &
+                                                    (ProjectAccess.access_type == 'owner')))
+        participant_projects = db.execute(select(ProjectAccess.project_id)
+                                    .where((ProjectAccess.username == username) & 
+                                           (ProjectAccess.access_type == 'participant')))
+        list_owned_projects = [str(row[0]) for row in owned_projects]
+        list_participant_projects = [str(row[0]) for row in participant_projects]
+        owned_projects_as_str = " ".join(list_owned_projects)
+        participant_projects_as_str = " ".join(list_participant_projects)
+        return owned_projects_as_str, participant_projects_as_str
+
+        

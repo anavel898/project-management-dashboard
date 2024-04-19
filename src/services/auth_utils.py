@@ -38,7 +38,6 @@ def write_new_user(db: Session, user: User):
                      password=passw_byte_version)
     db.add(new_user)
     db.commit()
-    db.close()
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):

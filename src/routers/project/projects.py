@@ -26,7 +26,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    db = get_db()
+    db = list(get_db())[0]
     user = get_user(db=db, username=username)
     if user is None:
         raise credentials_exception
@@ -49,7 +49,7 @@ async def make_new_project(new_project: NewProject,
                            user_calling: str = Depends(get_current_user),
                            project_handler: object = Depends(createHandler)):
     try:
-        project_handler.create(
+        return project_handler.create(
             name=new_project.name,
             created_by=user_calling,
             description=new_project.description,

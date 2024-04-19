@@ -1,4 +1,4 @@
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import os
@@ -29,3 +29,8 @@ class DbConnector():
                 SQLALCHEMY_DATABASE_URL)
             Base.metadata.create_all(bind=self.engine)
             self.initialized = True
+
+# napravila ovo da daje sessiju middleware-u, mokovacu ga za tesotve
+def get_session():
+    db_conn = DbConnector()
+    return Session(bind=db_conn.engine, autocommit=False, autoflush=False)

@@ -14,7 +14,6 @@ async def get_all_projects(request: Request,
                            project_handler: object = Depends(createHandler)):
     owned = request.headers["owned"]
     participating = request.headers["participating"]
-    all = [owned, participating]
     accessible = []
     for li in [owned, participating]:
         if len(li.rstrip()) != 0:

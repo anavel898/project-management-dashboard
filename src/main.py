@@ -1,8 +1,6 @@
-from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi import FastAPI, HTTPException
 from starlette import status
-from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-
 from src.dependecies import get_session
 from src.services.auth_utils import get_user
 from src.services.db_project_handler import DbProjectHandler
@@ -11,7 +9,6 @@ from .routers.auth import auth
 from dotenv import load_dotenv
 import os
 from datetime import datetime
-from typing import Annotated
 
 app = FastAPI()
 app.include_router(projects.project_router)

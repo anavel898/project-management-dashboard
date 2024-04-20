@@ -67,13 +67,23 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(400, expected_code)
         self.assertEqual("No Authorization header", expected_detail)
 
-    def test_b_new_user(self):
+    def test_b1_new_user(self):
         sign_up_data = {"username": "jandoe",
                 "full_name": "Jane Doe",
                 "email": "jandoe@gmail.com",
                 "password": "1234"}
         response = self.client.post("/auth", data=sign_up_data)
         self.assertEqual(200, response.status_code)
+
+    def test_b2_new_user_400_error(self):
+        sign_up_data = {"username": "jandoe",
+                "full_name": "Jane Doe",
+                "email": "jandoe@gmail.com",
+                "password": "1234"}
+        response = self.client.post("/auth", data=sign_up_data)
+        self.assertEqual(400, response.status_code)
+        self.assertEqual({"detail": "Username 'jandoe' is already taken"},
+                         response.json())
 
     
     def test_c1_login_new_user(self):

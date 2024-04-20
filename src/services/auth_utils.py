@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from fastapi import HTTPException
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from src.services.project_manager_tables import Users
@@ -30,6 +31,9 @@ def get_user(db: Session, username: str):
     return user
 
 def write_new_user(db: Session, user: User):
+    if db.get(Users, user.username) is not None:
+        raise HTTPException(status_code=400,
+                            detail=f"Username '{user.username}' is already taken")
     hashed_passw = get_password_hash(user.password)
     passw_byte_version = bytes(hashed_passw, encoding="utf-8")
     new_user = Users(username=user.username,

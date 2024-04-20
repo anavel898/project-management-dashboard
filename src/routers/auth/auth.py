@@ -36,5 +36,5 @@ async def create_new_user(db: Annotated[Session, Depends(get_db)],
     try:
         write_new_user(db, new_user)
         return status.HTTP_201_CREATED
-    except:
-        raise HTTPException(status_code=500)
+    except HTTPException as ex:
+        raise ex

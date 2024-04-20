@@ -103,7 +103,16 @@ class DbProjectHandler(ProjectHandlerInterface):
                                 detail=f"No project with id {project_id} found")
         else:
             return project
+
+
+    def grant_access(self, project_id: int, username: str, db: Session):
+        new_access = ProjectAccess(project_id=project_id,
+                                   username=username,
+                                   access_type="participant")
+        db.add(new_access)
+        db.commit()
         
+
     @staticmethod
     def get_project_privileges(db: Session, username: str):
         owned_projects = db.execute(select(ProjectAccess.project_id)

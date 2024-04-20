@@ -13,6 +13,10 @@ class UpdateProject(BaseModel):
     name: str = Field(None, max_length=100)
     description: str = Field(None, max_length=500)
 
+class InviteProject(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
+
 
 class Project(BaseModel):
     id: int

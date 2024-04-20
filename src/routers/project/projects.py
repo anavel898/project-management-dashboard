@@ -3,7 +3,7 @@ from starlette import status
 
 from sqlalchemy.orm import Session
 from src.project_handler_factory import createHandler
-from src.routers.project.schemas import NewProject, UpdateProject, Project
+from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject
 from src.dependecies import get_db
 
 project_router = APIRouter()
@@ -45,10 +45,13 @@ async def get_project_details(request: Request,
                               project_id: int,
                               db: Session = Depends(get_db),
                               project_handler: object = Depends(createHandler)):
+    # check if project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
     owned = request.headers["owned"]
-    print(owned.split(" "))
     participating = request.headers["participating"]
-    print(participating.split(" "))
     # check appropriate privileges
     if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
@@ -70,6 +73,11 @@ async def update_project_details(request: Request,
             status_code=400,
             detail="No project properties were specified in the request body"
         )
+    # check if project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
     owned = request.headers["owned"]
     participating = request.headers["participating"]
     # check appropriate privileges
@@ -90,6 +98,11 @@ async def delete_project(request: Request,
                          project_id: int,
                          db: Session = Depends(get_db),
                          project_handler: object = Depends(createHandler)):
+    # check if project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
     owned = request.headers["owned"]
     if str(project_id) not in owned:
         raise HTTPException(
@@ -106,9 +119,14 @@ async def delete_project(request: Request,
 @project_router.post("/project/{project_id}/invite")
 async def add_collaborator(request: Request,
                            project_id: int,
-                           user: str,
+                           new_participant: InviteProject,
                            db: Session = Depends(get_db),
                            project_handler: object = Depends(createHandler)):
+    # check if project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
     owned = request.headers["owned"]
     if str(project_id) not in owned:
         raise HTTPException(
@@ -116,6 +134,6 @@ async def add_collaborator(request: Request,
             detail="Only project owner can invite participants"
         )
     try:
-        project_handler.grant_access(project_id, user, db)
+        project_handler.grant_access(project_id, new_participant.name, db)
     except HTTPException as ex:
         raise ex

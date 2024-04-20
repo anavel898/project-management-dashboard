@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -33,131 +34,275 @@ class TestEndpoints(unittest.TestCase):
         # create instance of app
         cls.client = TestClient(app)
         # create first user
-        sign_up_data = {"username": "anavel",
-                "full_name": "Ana",
-                "email": "anavel@gmail.com",
+        sign_up_data = {"username": "johdoe",
+                "full_name": "John Doe",
+                "email": "johdoe@gmail.com",
                 "password": "1234"}
         cls.client.post("/auth", data=sign_up_data)
         # login first user
         log_in_data = {
-            "username": "anavel",
+            "username": "johdoe",
             "password": "1234"
         }
         response = cls.client.post("/login", data=log_in_data)
         response_as_dict = dict(response.json())
-        cls.first_jwt = response_as_dict["access_token"]
+        cls.jon_jwt = response_as_dict["access_token"]
         return super().setUpClass()
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.patcher.stop()
         return super().tearDownClass()
-    
-    def test_create(self):
-        requestBody = {"name": "Project 1",
-                        "description": "toy description 1"}
-        header = {"Authorization": f"bearer {self.first_jwt}"}
-        response = self.client.post("/projects", json=requestBody, headers=header)
-        self.assertEqual(200, response.status_code)
-        responseAsDict = dict(response.json())
-        self.assertEqual(10, len(responseAsDict))
-        self.assertEqual("Project 1", responseAsDict["name"])
-        self.assertEqual(1, responseAsDict["id"])
-        self.assertEqual("toy description 1", responseAsDict["description"])
-        self.assertEqual("anavel", responseAsDict["created_by"])
-        self.assertIsNotNone(responseAsDict["created_on"])
-        self.assertIsNone(responseAsDict["logo"])
-        self.assertIsNone(responseAsDict["updated_by"])
-        self.assertIsNone(responseAsDict["updated_on"])
-        self.assertEqual([], responseAsDict["documents"])
-        self.assertEqual(['anavel'], responseAsDict["contributors"])
 
-    #@unittest.skip("not adjusted for middleware yet")
-    def test_get_all(self):
-        header = {"Authorization": f"bearer {self.first_jwt}"}
-        response = self.client.get("/projects", headers=header)
+
+    def test_a_middleware(self):
+        def call_something_wo_auth_header():
+            try:
+                self.client.get("/projects")
+            except HTTPException as ex:
+                code = ex.status_code
+                detail = ex.detail
+                return code, detail
+        expected_code, expected_detail = call_something_wo_auth_header()
+        self.assertEqual(400, expected_code)
+        self.assertEqual("No Authorization header", expected_detail)
+
+    def test_b_new_user(self):
+        sign_up_data = {"username": "jandoe",
+                "full_name": "Jane Doe",
+                "email": "jandoe@gmail.com",
+                "password": "1234"}
+        response = self.client.post("/auth", data=sign_up_data)
         self.assertEqual(200, response.status_code)
-        # checking if project details are transferred appropriately
+
+    
+    def test_c1_login_new_user(self):
+        log_in_data = {
+            "username": "jandoe",
+            "password": "1234"
+        }
+        response = self.client.post("/login", data=log_in_data)
+        self.assertEqual(200, response.status_code)
+        response_as_dict = dict(response.json())
+        self.assertEqual("bearer", response_as_dict["token_type"])
+        self.assertIsInstance(response_as_dict["access_token"], str)
+
+    
+    def test_c2_login_failure(self):
+        log_in_data = {
+            "username": "jandoe",
+            "password": "wrong password"
+        }
+        response = self.client.post("/login", data=log_in_data)
+        self.assertEqual(401, response.status_code)
+        self.assertEqual("Incorrect username or password", dict(response.json())["detail"])
+
+
+    def test_d_create(self):
+        request_body = {"name": "Project 1",
+                        "description": "toy description 1"}
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.post("/projects", json=request_body, headers=header)
+        self.assertEqual(200, response.status_code)
+        response_as_dict = dict(response.json())
+        self.assertEqual(10, len(response_as_dict))
+        self.assertEqual("Project 1", response_as_dict["name"])
+        self.assertEqual(1, response_as_dict["id"])
+        self.assertEqual("toy description 1", response_as_dict["description"])
+        self.assertEqual("johdoe", response_as_dict["created_by"])
+        self.assertIsNotNone(response_as_dict["created_on"])
+        self.assertIsNone(response_as_dict["logo"])
+        self.assertIsNone(response_as_dict["updated_by"])
+        self.assertIsNone(response_as_dict["updated_on"])
+        self.assertEqual([], response_as_dict["documents"])
+        self.assertEqual(['johdoe'], response_as_dict["contributors"])
+
+
+    def test_e_get_all(self):
+        # login as Jane
+        log_in_data = {
+            "username": "jandoe",
+            "password": "1234"
+        }
+        login_response = self.client.post("/login", data=log_in_data)
+        jane_jwt = dict(login_response.json())["access_token"]
+        # create project as Jane
+        request_body = {"name": "Jane's",
+                        "description": "toy description"}
+        self.client.post("/projects",
+                         json=request_body,
+                         headers={"Authorization": f"bearer {jane_jwt}"})
+
+        # calling method as John
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/projects", headers=header)
         response_payload = response.json()
+        self.assertEqual(200, response.status_code)
+        # checking that only John's project is returned
         self.assertEqual(1, len(response_payload))
         self.assertIsInstance(response_payload[0], dict)
         self.assertEqual("Project 1", response_payload[0]["name"])
         self.assertEqual(1, response_payload[0]["id"])
         self.assertEqual("toy description 1",
                          response_payload[0]["description"])
-        self.assertEqual("anavel", response_payload[0]["created_by"])
+        self.assertEqual("johdoe", response_payload[0]["created_by"])
         self.assertIsNotNone(response_payload[0]["created_on"])
         self.assertIsNone(response_payload[0]["logo"])
         self.assertIsNone(response_payload[0]["updated_by"])
         self.assertIsNone(response_payload[0]["updated_on"])
         self.assertEqual([], response_payload[0]["documents"])
-        self.assertEqual(['anavel'], response_payload[0]["contributors"])
-        
-    @unittest.skip("not adjusted for middleware yet")
-    def test_get(self):
-        response = self.client.get("/project/1/info")
+        self.assertEqual(['johdoe'], response_payload[0]["contributors"])
+
+
+    def test_f_get(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/project/1/info", headers=header)
         self.assertEqual(200, response.status_code)
         # checking if project details are transferred appropriately
-        responseAsDict = dict(response.json())
-        self.assertEqual(10, len(responseAsDict))
-        self.assertEqual("Project 1", responseAsDict["name"])
-        self.assertEqual(1, responseAsDict["id"])
-        self.assertEqual("toy description 1", responseAsDict["description"])
-        self.assertEqual("anavel", responseAsDict["created_by"])
-        self.assertIsNotNone(responseAsDict["created_on"])
-        self.assertIsNone(responseAsDict["logo"])
-        self.assertIsNone(responseAsDict["updated_by"])
-        self.assertIsNone(responseAsDict["updated_on"])
-        self.assertEqual([], responseAsDict["documents"])
-        self.assertEqual(['anavel'], responseAsDict["contributors"])
+        response_as_dict = dict(response.json())
+        self.assertEqual(10, len(response_as_dict))
+        self.assertEqual("Project 1", response_as_dict["name"])
+        self.assertEqual(1, response_as_dict["id"])
+        self.assertEqual("toy description 1", response_as_dict["description"])
+        self.assertEqual("johdoe", response_as_dict["created_by"])
+        self.assertIsNotNone(response_as_dict["created_on"])
+        self.assertIsNone(response_as_dict["logo"])
+        self.assertIsNone(response_as_dict["updated_by"])
+        self.assertIsNone(response_as_dict["updated_on"])
+        self.assertEqual([], response_as_dict["documents"])
+        self.assertEqual(['johdoe'], response_as_dict["contributors"])
 
-    @unittest.skip("not adjusted for middleware yet")
-    def test_get_failure(self):
-        response = self.client.get("/project/3/info")
+
+    def test_f_get_404_failure(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/project/45/info", headers=header)
         self.assertEqual(404, response.status_code)
-        self.assertEqual({"detail":"No project with id 3 found"},
+        self.assertEqual({"detail":"No project with id 45 found"},
                          response.json())
+        
+    def test_f_get_403_failure(self):
+        # login as Jane and try to access John's project
+        log_in_data = {
+            "username": "jandoe",
+            "password": "1234"
+        }
+        response = self.client.post("/login", data=log_in_data)
+        jane_jwt = dict(response.json())["access_token"]
+        header = {"Authorization": f"bearer {jane_jwt}"}
+        get_response = self.client.get("/project/1/info", headers=header)
+        self.assertEqual(403, get_response.status_code)
+        self.assertEqual({"detail": "You don't have access to this project."},
+                         get_response.json())
+       
 
-    @unittest.skip("not adjusted for middleware yet")    
-    def test_update(self):
-        requestBody = {"updated_by": "janedoe",
-                        "description": "updated description"}
-        response = self.client.put("/project/1/info", json=requestBody)
-
+    def test_g_update(self):
+        request_body = {"description": "updated description"}
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.put("/project/1/info", json=request_body, headers=header)
         self.assertEqual(200, response.status_code)
-        responseAsDict = dict(response.json())
-        self.assertIsNotNone(responseAsDict["updated_on"])
-        self.assertEqual("janedoe", responseAsDict["updated_by"])
-        self.assertEqual("updated description", responseAsDict["description"])
+        response_as_dict = dict(response.json())
+        self.assertIsNotNone(response_as_dict["updated_on"])
+        self.assertEqual("johdoe", response_as_dict["updated_by"])
+        self.assertEqual("updated description", response_as_dict["description"])
     
-    @unittest.skip("not adjusted for middleware yet")
-    def test_update_invalid_body_value(self):
-        invalidRequestBody = {"fake_property": 5}
-        response = self.client.put("/project/1/info", json = invalidRequestBody)
-        self.assertEqual(422, response.status_code)
-    
-    @unittest.skip("not adjusted for middleware yet")
-    def test_update_empty_body(self):
-        response = self.client.put("/project/1/info")
-        self.assertEqual(422, response.status_code)
 
-    @unittest.skip("not adjusted for middleware yet")
-    def test_update_non_existing_project(self):
-        requestBody = {"updated_by": "janedoe",
-                        "description": "updated description"} 
-        response = self.client.put("/project/65/info", json = requestBody)
+    def test_g_update_422_failure(self):
+        invalid_request_body = {"fake_property": 5}
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.put("/project/1/info", json=invalid_request_body, headers=header)
+        self.assertEqual(422, response.status_code)
+    
+
+    def test_g_update_404_failure(self):
+        request_body = {"description": "updated description"}
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.put("/project/65/info", json=request_body, headers=header)
         self.assertEqual(404, response.status_code)
         self.assertEqual({"detail":"No project with id 65 found"},
-                         response.json())    
+                         response.json())
 
-    @unittest.skip("not adjusted for middleware yet")
-    def delete_fail(self):
-        response = self.client.delete("/project/5999")
+
+    def test_g_update_403_failure(self):
+        log_in_data = {
+            "username": "jandoe",
+            "password": "1234"
+        }
+        login_response = self.client.post("/login", data=log_in_data)
+        jane_jwt = dict(login_response.json())["access_token"]
+        header = {"Authorization": f"bearer {jane_jwt}"}
+        request_body = {"description": "updated description"}
+        response = self.client.put("/project/1/info", json=request_body,
+                                   headers=header)
+        self.assertEqual(403, response.status_code)
+        self.assertEqual({"detail": "You don't have access to this project."},
+                         response.json())
+        
+    
+    def test_h1_grant_access(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        request_body = {"name": "jandoe"}
+        response = self.client.post("/project/1/invite",
+                                    json=request_body,
+                                    headers=header)
+        self.assertEqual(200, response.status_code)
+        # now jane should be able to get project 1
+        log_in_data = {
+            "username": "jandoe",
+            "password": "1234"
+        }
+        login_response = self.client.post("/login", data=log_in_data)
+        jane_jwt = dict(login_response.json())["access_token"]
+        jane_header = {"Authorization": f"bearer {jane_jwt}"}
+        get_response = self.client.get("/project/1/info", headers=jane_header)
+        self.assertEqual(200, get_response.status_code)
+
+
+    def test_h2_grant_access_403_fail(self):
+        log_in_data = {
+            "username": "jandoe",
+            "password": "1234"
+        }
+        login_response = self.client.post("/login", data=log_in_data)
+        jane_jwt = dict(login_response.json())["access_token"]
+        header = {"Authorization": f"bearer {jane_jwt}"}
+        request_body = {"name": "petpet"}
+        response = self.client.post("/project/1/invite",
+                                    json=request_body,
+                                    headers=header)
+        self.assertEqual(403, response.status_code)
+        self.assertEqual({"detail": "Only project owner can invite participants"},
+                         response.json())
+
+
+    def test_z_delete_404_fail(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.delete("/project/5999", headers=header)
         self.assertEqual(404, response.status_code)
         self.assertEqual({"detail":"No project with id 5999 found"},
                          response.json())
-    
-    @unittest.skip("not adjusted for middleware yet")   
-    def delete(self):
-        response = self.client.delete("/project/1")
-        self.assertEqual(204, response.status_code)
+
+ 
+    def test_z_delete_403_fail(self):
+        log_in_data = {
+            "username": "jandoe",
+            "password": "1234"
+        }
+        login_response = self.client.post("/login", data=log_in_data)
+        jane_jwt = dict(login_response.json())["access_token"]
+        header = {"Authorization": f"bearer {jane_jwt}"}
+        response = self.client.delete("/project/1", headers=header)
+        self.assertEqual(403, response.status_code)
+        self.assertEqual({"detail": "Only project owner can delete it"},
+                         response.json())
+        
+    def test_z_delete(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        request_body = {"name": "Project for testing delete",
+                        "description": "toy description"}
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        post_response = self.client.post("/projects", json=request_body, headers=header)
+        created_id = dict(post_response.json())["id"]
+        response = self.client.delete(f"/project/{created_id}", headers=header)
+        self.assertEqual(200, response.status_code)
+
+       

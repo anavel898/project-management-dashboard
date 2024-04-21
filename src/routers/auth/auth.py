@@ -32,7 +32,6 @@ async def login_for_access_token(
 @auth_router.post("/auth")
 async def create_new_user(db: Annotated[Session, Depends(get_db)],
                           new_user: User = Depends(User.as_form),):
-    # will call function to write stuff into the database
     try:
         write_new_user(db, new_user)
         return status.HTTP_201_CREATED

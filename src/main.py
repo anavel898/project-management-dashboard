@@ -16,7 +16,6 @@ app.include_router(auth.auth_router)
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
-#oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 def is_excluded(path: str):
     paths_excluded_from_authorization = ["/", "/auth", "/login", "/openapi.json", "/docs"]

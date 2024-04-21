@@ -1,10 +1,12 @@
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from src.project_handler_interface import ProjectHandlerInterface
-from src.routers.project.schemas import Project
+from src.routers.project.schemas import Project, Document
 from datetime import datetime
 from fastapi import HTTPException
+from src.services.documents_utils import upload_file_to_s3
 from src.services.project_manager_tables import Projects, ProjectAccess, Users, Documents
+from uuid import uuid4
 
 class DbProjectHandler(ProjectHandlerInterface):
     def create(self,
@@ -39,7 +41,6 @@ class DbProjectHandler(ProjectHandlerInterface):
                 )
             )
             docs_list = [{"id": row[0], "name": row[1]} for row in docs.all()]
-        
             # retrieve full list of project contributors
             contributors = db.execute(
                 select(ProjectAccess.username).where(
@@ -127,4 +128,66 @@ class DbProjectHandler(ProjectHandlerInterface):
         participant_projects_as_str = " ".join(list_participant_projects)
         return owned_projects_as_str, participant_projects_as_str
 
+
+    async def associate_document(self,
+                           project_id: int,
+                           doc_name: str,
+                           content_type: str,
+                           caller: str,
+                           byfile: bytes,
+                           db: Session):
+        written = False
+        new_document = Documents(name=doc_name.strip().replace(" ","-"),
+                                 project_id=project_id,
+                                 added_by=caller,
+                                 content_type=content_type)
+        db.add(new_document)
+        db.commit()
+        while not written:
+            # generate uuid and write to db
+            try:
+                uuid = uuid4()
+                to_update = {"s3_key": uuid}
+                db.execute(update(Documents)
+                           .where(Documents.id == new_document.id)
+                           .values(to_update))
+                written = True
+            except Exception as ex:
+                continue
+        # upload to s3
+        try:
+            await upload_file_to_s3(bucket_name="project-manager-documents",
+                                    key=str(uuid),
+                                    bin_file=byfile)
+        except Exception as ex:
+            raise ex
         
+        # commit only if db update and upload to s3 were both success
+        db.commit()
+
+        final_document = db.get(Documents, new_document.id)
+        return Document(id=final_document.id,
+                        name=final_document.name,
+                        added_by=final_document.added_by,
+                        content_type=final_document.content_type,
+                        project_id=final_document.project_id)
+
+
+    def get_docs(self,
+                 project_id: int,
+                 db: Session):
+        all_documents = db.execute(select(Documents.id,
+                                          Documents.name,
+                                          Documents.added_by,
+                                          Documents.content_type)
+                                          .where(Documents.project_id == project_id))
+        all_docs_formatted = []
+        for row in all_documents.all():
+            doc = Document(id=row[0],
+                           name=row[1],
+                           added_by=row[2],
+                           content_type=row[3],
+                           project_id=project_id)
+            all_docs_formatted.append(doc)
+        return all_docs_formatted
+

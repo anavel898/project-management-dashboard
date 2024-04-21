@@ -13,6 +13,8 @@ python-multipart = "*"
 python-jose = {extras = ["cryptography"], version = "*"}
 passlib = {extras = ["bcrypt"], version = "*"}
 bcrypt = "==4.0.1"
+awscli = "*"
+boto3 = "*"
 
 [dev-packages]
 

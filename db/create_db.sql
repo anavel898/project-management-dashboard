@@ -25,7 +25,8 @@ CREATE TABLE documents(
 	name varchar(50) NOT NULL,
 	project_id integer NOT NULL, 
 	added_by varchar(10) NOT NULL,
-	link_to_document varchar(2048) NOT NULL,
+	content_type varchar(50) NOT NULL,
+	s3_key varchar(36) UNIQUE,
 	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
 	FOREIGN KEY (added_by) REFERENCES users(username)
 );

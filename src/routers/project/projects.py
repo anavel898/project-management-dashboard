@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile
 from starlette import status
 
 from sqlalchemy.orm import Session
 from src.project_handler_factory import createHandler
-from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject
+from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, Document
 from src.dependecies import get_db
 
 project_router = APIRouter()
@@ -135,5 +135,61 @@ async def add_collaborator(request: Request,
         )
     try:
         project_handler.grant_access(project_id, new_participant.name, db)
+    except HTTPException as ex:
+        raise ex
+    
+
+@project_router.post("/project/{project_id}/documents", response_model=list[Document])
+async def upload_document(request: Request,
+                          project_id: int,
+                          upload_files: list[UploadFile],
+                          db: Session = Depends(get_db),
+                          project_handler: object = Depends(createHandler)):
+    # check project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
+    # check privileges
+    owned = request.headers["owned"]
+    participating = request.headers["participating"]
+    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You don't have access to this project.")
+    user_calling = request.headers["username"]
+    added_docs = []
+    for file in upload_files:
+        try:
+            contents = await file.read()
+            doc = await project_handler.associate_document(project_id=project_id,
+                                               doc_name=file.filename,
+                                               content_type=file.content_type,
+                                               caller=user_calling,
+                                               byfile=contents,
+                                               db=db)
+            added_docs.append(doc)
+        except HTTPException as ex:
+            raise ex
+    return added_docs
+
+
+@project_router.get("/project/{project_id}/documents", response_model=list[Document])
+async def get_all_documents(request: Request,
+                            project_id: int,
+                            db: Session = Depends(get_db),
+                            project_handler: object = Depends(createHandler)):
+    # check project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
+    # check privileges
+    owned = request.headers["owned"]
+    participating = request.headers["participating"]
+    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You don't have access to this project.")
+    try:
+        return project_handler.get_docs(project_id=project_id, db=db)
     except HTTPException as ex:
         raise ex

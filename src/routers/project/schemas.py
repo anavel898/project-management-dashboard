@@ -27,5 +27,13 @@ class Project(BaseModel):
     updated_on: Optional[datetime] = None
     updated_by: Optional[str] = None
     logo: Optional[str] = None
-    documents: Optional[List[dict[int, str]]] = None
+    documents: Optional[List[dict]] = None
     contributors: Optional[List[str]] = None
+
+
+class Document(BaseModel):
+    id: int
+    name: str
+    added_by: str
+    project_id: int
+    content_type: str

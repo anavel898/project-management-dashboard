@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile
+from fastapi import APIRouter, HTTPException, Depends, Request, Response, UploadFile
 from starlette import status
 
 from sqlalchemy.orm import Session
 from src.project_handler_factory import createHandler
-from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, Document
+from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, ProjectDocument, ProjectLogo
 from src.dependecies import get_db
 
 project_router = APIRouter()
@@ -139,7 +139,7 @@ async def add_collaborator(request: Request,
         raise ex
     
 
-@project_router.post("/project/{project_id}/documents", response_model=list[Document])
+@project_router.post("/project/{project_id}/documents", response_model=list[ProjectDocument])
 async def upload_document(request: Request,
                           project_id: int,
                           upload_files: list[UploadFile],
@@ -173,7 +173,7 @@ async def upload_document(request: Request,
     return added_docs
 
 
-@project_router.get("/project/{project_id}/documents", response_model=list[Document])
+@project_router.get("/project/{project_id}/documents", response_model=list[ProjectDocument])
 async def get_all_documents(request: Request,
                             project_id: int,
                             db: Session = Depends(get_db),
@@ -191,5 +191,91 @@ async def get_all_documents(request: Request,
                             detail="You don't have access to this project.")
     try:
         return project_handler.get_docs(project_id=project_id, db=db)
+    except HTTPException as ex:
+        raise ex
+    
+
+@project_router.put("/project/{project_id}/logo", response_model=ProjectLogo)
+async def upload_project_logo(request: Request,
+                              project_id: int,
+                              logo: UploadFile,
+                              db: Session = Depends(get_db),
+                              project_handler: object = Depends(createHandler)):
+    # check project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
+    # check privilege
+    owned = request.headers["owned"]
+    participating = request.headers["participating"]
+    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You don't have access to this project.")
+    # check valid upload file (content_type is image/png or image/jpg or image/jpeg)
+    if logo.content_type not in ["image/png", "image/jpeg"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Logo must be a .png or .jpeg file")
+    # call method and return created logo 
+    content = await logo.read()
+    try:
+        return project_handler.upload_logo(project_id=project_id,
+                                           logo_name=logo.filename,
+                                           b_content=content,
+                                           db=db)
+    except HTTPException as ex:
+        raise ex
+    
+
+@project_router.get("/project/{project_id}/logo", response_model=ProjectLogo)
+async def download_logo(request: Request,
+                        project_id: int,
+                        db: Session = Depends(get_db),
+                        project_handler: object = Depends(createHandler)):
+    # check project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
+    # check privilege
+    owned = request.headers["owned"]
+    participating = request.headers["participating"]
+    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You don't have access to this project.")
+    # call method and return file response
+    try:
+        name, content = project_handler.download_logo(project_id=project_id,
+                                                      db=db)
+        return Response(
+            content=content,
+            headers={
+                "Content-Disposition": f"attachment;filename={name}",
+                "Content-Type": "application/octet-stream"
+            }
+        )
+    except HTTPException as ex:
+        raise ex
+    
+
+@project_router.delete("/project/{project_id}/logo")
+async def delete_logo(request: Request,
+                      project_id: int,
+                      db: Session = Depends(get_db),
+                      project_handler: object = Depends(createHandler)):
+    # check project exists
+    try:
+        project_handler.check_project_exists(project_id, db)
+    except HTTPException as ex:
+        raise ex
+    # check privilege
+    owned = request.headers["owned"]
+    participating = request.headers["participating"]
+    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You don't have access to this project.")
+    try:
+        project_handler.delete_logo(project_id=project_id, db=db)
+        return status.HTTP_204_NO_CONTENT
     except HTTPException as ex:
         raise ex

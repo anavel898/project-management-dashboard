@@ -31,9 +31,14 @@ class Project(BaseModel):
     contributors: Optional[List[str]] = None
 
 
-class Document(BaseModel):
+class ProjectDocument(BaseModel):
     id: int
     name: str
     added_by: str
     project_id: int
     content_type: str
+
+
+class ProjectLogo(BaseModel):
+    project_id: int
+    logo_name: str

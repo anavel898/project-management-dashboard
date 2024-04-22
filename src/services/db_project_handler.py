@@ -1,10 +1,10 @@
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from src.project_handler_interface import ProjectHandlerInterface
-from src.routers.project.schemas import Project, Document
+from src.routers.project.schemas import Project, ProjectDocument, ProjectLogo
 from datetime import datetime
 from fastapi import HTTPException
-from src.services.documents_utils import upload_file_to_s3
+from src.services.documents_utils import delete_file_from_s3, download_file_from_s3, upload_file_to_s3
 from src.services.project_manager_tables import Projects, ProjectAccess, Users, Documents
 from uuid import uuid4
 
@@ -166,7 +166,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         db.commit()
 
         final_document = db.get(Documents, new_document.id)
-        return Document(id=final_document.id,
+        return ProjectDocument(id=final_document.id,
                         name=final_document.name,
                         added_by=final_document.added_by,
                         content_type=final_document.content_type,
@@ -183,11 +183,70 @@ class DbProjectHandler(ProjectHandlerInterface):
                                           .where(Documents.project_id == project_id))
         all_docs_formatted = []
         for row in all_documents.all():
-            doc = Document(id=row[0],
+            doc = ProjectDocument(id=row[0],
                            name=row[1],
                            added_by=row[2],
                            content_type=row[3],
                            project_id=project_id)
             all_docs_formatted.append(doc)
         return all_docs_formatted
+    
+
+    def upload_logo(self,
+                    project_id: int,
+                    logo_name: str,
+                    b_content: bytes,
+                    db: Session) -> ProjectLogo:
+        logo_key = f"project-{project_id}-logo-{logo_name}"
+        q = update(Projects).where(Projects.id == project_id).values(
+                {"logo": logo_key}
+            )
+        try:
+            db.execute(q)
+            upload_file_to_s3("logos-raw", logo_key, b_content)
+        except Exception as ex:
+            raise ex
+        else:
+            # commit update of logo field only if upload finished successfully
+            db.commit()
+        updated_proj = db.get(Projects, project_id)
+        name_for_user = updated_proj.logo[len(f"project-{project_id}-logo-"):]
+        return ProjectLogo(project_id=updated_proj.id,
+                           logo_name=name_for_user)
+    
+
+    def download_logo(self,
+                      project_id: int,
+                      db: Session):
+        proj = db.get(Projects, project_id)
+        name_for_user = proj.logo[len(f"project-{project_id}-logo-"):]
+        try:
+            contents = download_file_from_s3(bucket_name="logos-processed",
+                                         key=proj.logo)
+        except Exception as ex:
+            raise ex
+        return name_for_user, contents
+    
+
+    def delete_logo(self,
+                    project_id: int,
+                    db: Session):
+        proj = db.get(Projects, project_id)
+        try:
+            # delete from bucket with resized
+            delete_file_from_s3("logos-processed", proj.logo)
+            # delete from bucket with original images
+            delete_file_from_s3("logos-raw", proj.logo)
+            q = update(Projects).where(Projects.id == project_id).values(
+                {"logo": None}
+            )
+            db.execute(q)
+        except Exception as ex:
+            raise ex
+        else:
+            db.commit()
+
+        
+
+
 

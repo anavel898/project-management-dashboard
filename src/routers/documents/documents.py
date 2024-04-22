@@ -57,6 +57,7 @@ async def update_document(request: Request,
     if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
         raise HTTPException(status)
     try:
+        # not implemented method - not clear what it should do
         DocumentHandler.update_document(document_id=document_id, db=db)
     except HTTPException as ex:
         raise ex

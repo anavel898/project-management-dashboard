@@ -25,7 +25,7 @@ async def get_document(request: Request,
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="You don't have access to this document")
     try:
-        name, content_type, contents = await DocumentHandler.download_document(document_id=document_id, db=db)
+        name, content_type, contents = DocumentHandler.download_document(document_id=document_id, db=db)
         return Response(
             content=contents,
             media_type=content_type,
@@ -79,7 +79,7 @@ async def delete_document(request: Request,
     if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
         raise HTTPException(status)
     try:
-        await DocumentHandler.delete_document(document_id=document_id,
+        DocumentHandler.delete_document(document_id=document_id,
                                         db=db)
         return status.HTTP_204_NO_CONTENT
     except HTTPException as ex:

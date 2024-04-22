@@ -129,7 +129,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         return owned_projects_as_str, participant_projects_as_str
 
 
-    async def associate_document(self,
+    def associate_document(self,
                            project_id: int,
                            doc_name: str,
                            content_type: str,
@@ -147,7 +147,7 @@ class DbProjectHandler(ProjectHandlerInterface):
             # generate uuid and write to db
             try:
                 uuid = uuid4()
-                to_update = {"s3_key": uuid}
+                to_update = {"s3_key": str(uuid)}
                 db.execute(update(Documents)
                            .where(Documents.id == new_document.id)
                            .values(to_update))
@@ -156,7 +156,7 @@ class DbProjectHandler(ProjectHandlerInterface):
                 continue
         # upload to s3
         try:
-            await upload_file_to_s3(bucket_name="project-manager-documents",
+            upload_file_to_s3(bucket_name="project-manager-documents",
                                     key=str(uuid),
                                     bin_file=byfile)
         except Exception as ex:

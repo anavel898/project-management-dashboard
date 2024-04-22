@@ -1,5 +1,7 @@
+import os
 import unittest
-from unittest.mock import patch
+from unittest import mock
+from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -10,7 +12,7 @@ from src.services.project_manager_tables import Base
 from src.main import app
 
 
-class TestEndpoints(unittest.TestCase):
+class Test_Endpoints(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls) -> None:
@@ -47,11 +49,15 @@ class TestEndpoints(unittest.TestCase):
         response = cls.client.post("/login", data=log_in_data)
         response_as_dict = dict(response.json())
         cls.jon_jwt = response_as_dict["access_token"]
+        # creating toy file to use for tests
+        with open("toy_file.txt", 'w') as f:
+            pass
         return super().setUpClass()
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.patcher.stop()
+        os.remove("./toy_file.txt")
         return super().tearDownClass()
 
 
@@ -284,6 +290,66 @@ class TestEndpoints(unittest.TestCase):
                          response.json())
 
 
+    @mock.patch("src.services.db_project_handler.upload_file_to_s3")
+    def test_i_upload_document(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        file_contents = open("./toy_file.txt", "rb")
+        doc_file = {"upload_files":
+                    ("toy_file.txt", file_contents, "text/plain")}
+        response = self.client.post("/project/1/documents",
+                                    headers=header,
+                                    files=doc_file)
+        file_contents.close()
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual(1, len(response.json()))
+        self.assertEqual(1, response.json()[0]["id"])
+        self.assertEqual("toy_file.txt", response.json()[0]["name"])
+        self.assertEqual("johdoe", response.json()[0]["added_by"])
+        self.assertEqual("text/plain", response.json()[0]["content_type"])
+
+
+    def test_j_get_all_documents(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/project/1/documents", headers=header)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(1, len(response.json()))
+        self.assertEqual(1, response.json()[0]["id"])
+        self.assertEqual("toy_file.txt", response.json()[0]["name"])
+        self.assertEqual("johdoe", response.json()[0]["added_by"])
+        self.assertEqual("text/plain", response.json()[0]["content_type"])
+
+
+    @mock.patch("src.services.document_handler.download_file_from_s3", return_value=bytes("random_string", "utf-8"))
+    def test_k_download_document(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/document/1", headers=header)
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual("attachment;filename=toy_file.txt",
+                         response.headers["content-disposition"])
+        self.assertEqual("text/plain", response.headers["content-type"])
+        self.assertEqual("13", response.headers["content-length"])
+        self.assertEqual(bytes("random_string", "utf-8"), response.content) 
+
+    @unittest.skip
+    def test_l_update_document(self):
+        """Will be implemented after clarification of project requirements"""
+        pass
+
+
+    @mock.patch("src.services.document_handler.delete_file_from_s3")
+    def test_m_delete_document(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.delete("/document/1", headers=header)
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        try_getting_doc = self.client.get("/document/1", headers=header)
+        self.assertEqual(404, try_getting_doc.status_code)
+        self.assertEqual({"detail":"No document with id 1 found"},
+                         try_getting_doc.json())
+
+
     def test_z_delete_404_fail(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.delete("/project/5999", headers=header)
@@ -314,5 +380,3 @@ class TestEndpoints(unittest.TestCase):
         created_id = dict(post_response.json())["id"]
         response = self.client.delete(f"/project/{created_id}", headers=header)
         self.assertEqual(200, response.status_code)
-
-       

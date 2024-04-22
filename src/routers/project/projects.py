@@ -161,7 +161,7 @@ async def upload_document(request: Request,
     for file in upload_files:
         try:
             contents = await file.read()
-            doc = await project_handler.associate_document(project_id=project_id,
+            doc = project_handler.associate_document(project_id=project_id,
                                                doc_name=file.filename,
                                                content_type=file.content_type,
                                                caller=user_calling,

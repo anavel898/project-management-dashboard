@@ -6,13 +6,13 @@ from src.services.project_manager_tables import Documents, Projects
 
 class DocumentHandler():
     @staticmethod
-    async def download_document(document_id: int, db: Session):
+    def download_document(document_id: int, db: Session):
         doc = db.get(Documents, document_id)
         key = doc.s3_key
         name = doc.name
         content_type = doc.content_type
-        contents = await download_file_from_s3(bucket_name="project-manager-documents",
-                                               key=key)
+        contents = download_file_from_s3(bucket_name="project-manager-documents",
+                                         key=key)
         return (name, content_type, contents)
     
     @staticmethod
@@ -23,10 +23,10 @@ class DocumentHandler():
         raise NotImplementedError
 
     @staticmethod
-    async def delete_document(document_id: int, db: Session):
+    def delete_document(document_id: int, db: Session):
         doc = db.get(Documents, document_id)
         try:
-            await delete_file_from_s3(bucket_name="project-manager-documents",
+            delete_file_from_s3(bucket_name="project-manager-documents",
                                                key=doc.s3_key)
         except Exception as ex:
             raise ex

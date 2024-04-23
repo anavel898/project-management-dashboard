@@ -140,7 +140,8 @@ class DbProjectHandler(ProjectHandlerInterface):
         new_document = Documents(name=doc_name.strip().replace(" ","-"),
                                  project_id=project_id,
                                  added_by=caller,
-                                 content_type=content_type)
+                                 content_type=content_type,
+                                 added_on=datetime.now())
         db.add(new_document)
         db.commit()
         while not written:
@@ -169,6 +170,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         return ProjectDocument(id=final_document.id,
                         name=final_document.name,
                         added_by=final_document.added_by,
+                        added_on=final_document.added_on,
                         content_type=final_document.content_type,
                         project_id=final_document.project_id)
 
@@ -179,6 +181,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         all_documents = db.execute(select(Documents.id,
                                           Documents.name,
                                           Documents.added_by,
+                                          Documents.added_on,
                                           Documents.content_type)
                                           .where(Documents.project_id == project_id))
         all_docs_formatted = []
@@ -186,7 +189,8 @@ class DbProjectHandler(ProjectHandlerInterface):
             doc = ProjectDocument(id=row[0],
                            name=row[1],
                            added_by=row[2],
-                           content_type=row[3],
+                           added_on=row[3],
+                           content_type=row[4],
                            project_id=project_id)
             all_docs_formatted.append(doc)
         return all_docs_formatted
@@ -196,10 +200,14 @@ class DbProjectHandler(ProjectHandlerInterface):
                     project_id: int,
                     logo_name: str,
                     b_content: bytes,
+                    logo_poster:str,
                     db: Session) -> ProjectLogo:
-        logo_key = f"project-{project_id}-logo-{logo_name}"
+        clean_user_provided_name = logo_name.strip().replace(" ","-")
+        logo_key = f"project-{project_id}-logo-{clean_user_provided_name}"
         q = update(Projects).where(Projects.id == project_id).values(
-                {"logo": logo_key}
+                {"logo": logo_key,
+                 "updated_by": logo_poster,
+                 "updated_on": datetime.now()}
             )
         try:
             db.execute(q)
@@ -212,13 +220,18 @@ class DbProjectHandler(ProjectHandlerInterface):
         updated_proj = db.get(Projects, project_id)
         name_for_user = updated_proj.logo[len(f"project-{project_id}-logo-"):]
         return ProjectLogo(project_id=updated_proj.id,
-                           logo_name=name_for_user)
+                           logo_name=name_for_user,
+                           uploaded_by=updated_proj.updated_by,
+                           uploaded_on=updated_proj.updated_on)
     
 
     def download_logo(self,
                       project_id: int,
                       db: Session):
         proj = db.get(Projects, project_id)
+        if proj.logo is None:
+            raise HTTPException(status_code=404,
+                                detail=f"Project with id {project_id} doesn't have a logo")
         name_for_user = proj.logo[len(f"project-{project_id}-logo-"):]
         try:
             contents = download_file_from_s3(bucket_name="logos-processed",
@@ -230,6 +243,7 @@ class DbProjectHandler(ProjectHandlerInterface):
 
     def delete_logo(self,
                     project_id: int,
+                    user_calling: str,
                     db: Session):
         proj = db.get(Projects, project_id)
         try:
@@ -238,15 +252,12 @@ class DbProjectHandler(ProjectHandlerInterface):
             # delete from bucket with original images
             delete_file_from_s3("logos-raw", proj.logo)
             q = update(Projects).where(Projects.id == project_id).values(
-                {"logo": None}
+                {"logo": None,
+                 "updated_by": user_calling,
+                 "updated_on": datetime.now()}
             )
             db.execute(q)
         except Exception as ex:
             raise ex
         else:
             db.commit()
-
-        
-
-
-

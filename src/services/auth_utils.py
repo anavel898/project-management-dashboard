@@ -5,10 +5,11 @@ from sqlalchemy.orm import Session
 from src.services.project_manager_tables import Users
 from src.routers.auth.schemas import User
 from jose import jwt
+from dotenv import load_dotenv
+import os
 
-
-SECRET_KEY = "c502c12a9cc0af07578e81da09fdf31e1b2730134a613f81730ce525dda57492"
-ALGORITHM = "HS256"
+load_dotenv()
+SECRET_KEY = os.getenv("SECRET_KEY")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):

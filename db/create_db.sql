@@ -16,17 +16,18 @@ CREATE TABLE projects(
 	description varchar(500) NOT NULL,
 	updated_by varchar(10),
 	updated_on timestamp,
-	logo varchar(2048),
+	logo varchar(300),
 	FOREIGN KEY (created_by) REFERENCES users(username)
 	);
 
 CREATE TABLE documents(
 	id SERIAL PRIMARY KEY,
-	name varchar(50) NOT NULL,
+	name varchar(300) NOT NULL,
 	project_id integer NOT NULL, 
 	added_by varchar(10) NOT NULL,
 	content_type varchar(50) NOT NULL,
 	s3_key varchar(36) UNIQUE,
+	added_on timestamp NOT NULL,
 	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
 	FOREIGN KEY (added_by) REFERENCES users(username)
 );

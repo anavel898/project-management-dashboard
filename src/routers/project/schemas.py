@@ -35,6 +35,7 @@ class ProjectDocument(BaseModel):
     id: int
     name: str
     added_by: str
+    added_on: datetime
     project_id: int
     content_type: str
 
@@ -42,3 +43,5 @@ class ProjectDocument(BaseModel):
 class ProjectLogo(BaseModel):
     project_id: int
     logo_name: str
+    uploaded_by: str
+    uploaded_on: datetime

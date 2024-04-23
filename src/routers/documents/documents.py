@@ -1,9 +1,10 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
 from src.dependecies import get_db
 from sqlalchemy.orm import Session
 from src.services.document_handler import DocumentHandler
 from starlette import status
+from src.routers.documents.schemas import Document
 
 
 documents_router = APIRouter()
@@ -39,9 +40,10 @@ async def get_document(request: Request,
 
 
 
-@documents_router.put("/document/{document_id}")
+@documents_router.put("/document/{document_id}", response_model=Document)
 async def update_document(request: Request,
                           document_id: int,
+                          new_document: UploadFile,
                           db: Annotated[Session, Depends(get_db)]):
     # check if document exists
     try:
@@ -56,9 +58,15 @@ async def update_document(request: Request,
                                                db=db)
     if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
         raise HTTPException(status)
+    user_calling = request.headers["username"]
+    content = await new_document.read()
     try:
-        # not implemented method - not clear what it should do
-        DocumentHandler.update_document(document_id=document_id, db=db)
+        return DocumentHandler.update_document(document_id=document_id,
+                                        doc_name=new_document.filename,
+                                        content_type=new_document.content_type,
+                                        updating_user=user_calling,
+                                        b_content=content,
+                                        db=db)
     except HTTPException as ex:
         raise ex
 

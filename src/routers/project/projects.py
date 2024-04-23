@@ -216,12 +216,14 @@ async def upload_project_logo(request: Request,
     if logo.content_type not in ["image/png", "image/jpeg"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Logo must be a .png or .jpeg file")
-    # call method and return created logo 
+    # call method and return created logo
+    username = request.headers["username"] 
     content = await logo.read()
     try:
         return project_handler.upload_logo(project_id=project_id,
                                            logo_name=logo.filename,
                                            b_content=content,
+                                           logo_poster=username,
                                            db=db)
     except HTTPException as ex:
         raise ex
@@ -274,8 +276,11 @@ async def delete_logo(request: Request,
     if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="You don't have access to this project.")
+    username = request.headers["username"]
     try:
-        project_handler.delete_logo(project_id=project_id, db=db)
+        project_handler.delete_logo(project_id=project_id,
+                                    user_calling=username,
+                                    db=db)
         return status.HTTP_204_NO_CONTENT
     except HTTPException as ex:
         raise ex

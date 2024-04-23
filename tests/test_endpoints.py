@@ -1,15 +1,24 @@
 import os
 import unittest
 from unittest import mock
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from src.dependecies import get_db
+from datetime import date, datetime
 from src.services.project_manager_tables import Base
 from src.main import app
+
+
+def image_helper():
+    m = MagicMock()
+    with open("test_logo.png", "rb") as image:
+        content = image.read()
+        m.return_value = content
+    return m
 
 
 class Test_Endpoints(unittest.TestCase):
@@ -296,6 +305,7 @@ class Test_Endpoints(unittest.TestCase):
         file_contents = open("./toy_file.txt", "rb")
         doc_file = {"upload_files":
                     ("toy_file.txt", file_contents, "text/plain")}
+        timestamp = datetime.now()
         response = self.client.post("/project/1/documents",
                                     headers=header,
                                     files=doc_file)
@@ -306,6 +316,9 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual(1, response.json()[0]["id"])
         self.assertEqual("toy_file.txt", response.json()[0]["name"])
         self.assertEqual("johdoe", response.json()[0]["added_by"])
+        self.assertLessEqual(timestamp,
+                             datetime.strptime(response.json()[0]["added_on"],
+                                               '%Y-%m-%dT%H:%M:%S.%f'))
         self.assertEqual("text/plain", response.json()[0]["content_type"])
 
 
@@ -317,6 +330,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual(1, response.json()[0]["id"])
         self.assertEqual("toy_file.txt", response.json()[0]["name"])
         self.assertEqual("johdoe", response.json()[0]["added_by"])
+        self.assertIsNotNone(response.json()[0]["added_on"])
         self.assertEqual("text/plain", response.json()[0]["content_type"])
 
 
@@ -332,11 +346,32 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual("13", response.headers["content-length"])
         self.assertEqual(bytes("random_string", "utf-8"), response.content) 
 
-    @unittest.skip
-    def test_l_update_document(self):
-        """Will be implemented after clarification of project requirements"""
-        pass
 
+    @mock.patch("src.services.document_handler.upload_file_to_s3")
+    def test_l_update_document(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        with open("toy_file_2.txt", 'w') as f:
+            pass
+        file_contents = open("./toy_file.txt", "rb")
+        doc_file = {"new_document":
+                    ("toy_file_2.txt", file_contents, "text/plain")}
+        timestamp = datetime.now()
+        response = self.client.put("/document/1",
+                                    headers=header,
+                                    files=doc_file)
+        file_contents.close()
+        os.remove("./toy_file_2.txt")
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual(1, response.json()["id"])
+        self.assertEqual("toy_file_2.txt", response.json()["name"])
+        self.assertEqual("johdoe", response.json()["added_by"])
+        self.assertLessEqual(timestamp,
+                             datetime.strptime(response.json()["added_on"],
+                                               '%Y-%m-%dT%H:%M:%S.%f'))
+        self.assertEqual("text/plain", response.json()["content_type"])
+
+       
 
     @mock.patch("src.services.document_handler.delete_file_from_s3")
     def test_m_delete_document(self, result):
@@ -348,6 +383,68 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual(404, try_getting_doc.status_code)
         self.assertEqual({"detail":"No document with id 1 found"},
                          try_getting_doc.json())
+
+
+    @mock.patch("src.services.db_project_handler.upload_file_to_s3")
+    def test_n1_upsert_logo(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        file_contents = open("test_logo.png", "rb")
+        doc_file = {"logo":
+                    ("test_logo.png", file_contents, "image/png")}
+        timestamp = datetime.now()
+        response = self.client.put("/project/1/logo",
+                                    headers=header,
+                                    files=doc_file)
+        file_contents.close()
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual(1, response.json()["project_id"])
+        self.assertEqual("test_logo.png", response.json()["logo_name"])
+        self.assertEqual("johdoe", response.json()["uploaded_by"])
+        self.assertLessEqual(timestamp,
+                             datetime.strptime(response.json()["uploaded_on"],
+                                               '%Y-%m-%dT%H:%M:%S.%f'))
+
+    
+    def test_n2_upsert_logo_400_fail(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        file_contents = open("./toy_file.txt", "rb")
+        doc_file = {"logo":
+                    ("test_logo.png", file_contents, "text/plain")}
+        response = self.client.put("/project/1/logo",
+                                    headers=header,
+                                    files=doc_file)
+        file_contents.close()
+        self.assertEqual(400, response.status_code)
+        self.assertEqual({"detail": "Logo must be a .png or .jpeg file"},
+                         response.json())
+
+
+    @mock.patch("src.services.db_project_handler.download_file_from_s3", new_callable=image_helper)
+    def test_o_download_logo(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/project/1/logo", headers=header)
+        image = bytes()
+        with open("test_logo.png", "rb") as i:
+            image = i.read()
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual("attachment;filename=test_logo.png",
+                         response.headers["content-disposition"])
+        self.assertEqual("application/octet-stream",
+                         response.headers["content-type"])
+        self.assertEqual(image, response.content)
+
+
+    @mock.patch("src.services.db_project_handler.delete_file_from_s3")
+    def test_p_delete_logo(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.delete("/project/1/logo", headers=header)
+        self.assertEqual(200, response.status_code)
+        try_get_logo = self.client.get("/project/1/logo", headers=header)
+        self.assertEqual(404, try_get_logo.status_code)
+        self.assertEqual({"detail": "Project with id 1 doesn't have a logo"},
+                         try_get_logo.json())
 
 
     def test_z_delete_404_fail(self):

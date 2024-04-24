@@ -159,14 +159,8 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(1, response_payload[0]["id"])
         self.assertEqual("toy description 1",
                          response_payload[0]["description"])
-        #self.assertEqual("johdoe", response_payload[0]["created_by"])
         self.assertEqual("johdoe", response_payload[0]["owner"])
         self.assertIsNotNone(response_payload[0]["created_on"])
-        # self.assertIsNone(response_payload[0]["logo"])
-        # self.assertIsNone(response_payload[0]["updated_by"])
-        # self.assertIsNone(response_payload[0]["updated_on"])
-        # self.assertEqual([], response_payload[0]["documents"])
-        # self.assertEqual(['johdoe'], response_payload[0]["contributors"])
 
     
     def test_f_get(self):

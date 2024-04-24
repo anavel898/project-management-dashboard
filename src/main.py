@@ -55,12 +55,11 @@ async def add_user_privilieges_to_header(request, call_next):
                             detail="No Authorization header")
     except JWTError:
         raise credentials_exception
-    # add extracted info into request header
-    headers = dict(request.scope['headers'])
-    headers[b'username'] = bytes(username, "utf-8")
+    # add extracted info into request
+    request.state.username = username
     request.state.owned = owned
     request.state.participating = participating
-    request.scope['headers'] = [(k, v) for k, v in headers.items()]
+    # proxy the request and return response
     response = await call_next(request)
     return response
 

@@ -41,4 +41,3 @@ class CoreProjectData(BaseModel):
     description: str
     owner: str
     created_on: datetime
-    # has_logo: bool

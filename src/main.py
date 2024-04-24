@@ -38,36 +38,35 @@ async def add_user_privilieges_to_header(request, call_next):
     )
     if is_excluded(request.url.path):
         return await call_next(request)
-    else:
-        try:
-            # extract token from header
-            token = request.headers["Authorization"][7:]
-            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            username: str = payload.get("sub")
-            expires: datetime = payload.get("exp")
-            if username is None:
-                raise credentials_exception
-            elif datetime.fromtimestamp(expires) < datetime.now():
-                raise credentials_exception
-            db = get_session()
-            # if username specified in sub doesn't exist, raise error
-            if get_user(db, username) is None:
-                raise credentials_exception
-            # get owner and participant privileges for authenticated user
-            owned, participating = DbProjectHandler().get_project_privileges(db=db, username=username)
-        except KeyError:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="No Authorization header")
-        except JWTError:
+    try:
+        # extract token from header
+        token = request.headers["Authorization"][7:]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        username: str = payload.get("sub")
+        expires: datetime = payload.get("exp")
+        if username is None:
             raise credentials_exception
-        # add extracted info into request header
-        headers = dict(request.scope['headers'])
-        headers[b'username'] = bytes(username, "utf-8")
-        headers[b'owned'] = bytes(owned, "utf-8")
-        headers[b'participating'] = bytes(participating, "utf-8")
-        request.scope['headers'] = [(k, v) for k, v in headers.items()]
-        response = await call_next(request)
-        return response
+        elif datetime.fromtimestamp(expires) < datetime.now():
+            raise credentials_exception
+        db = get_session()
+        # if username specified in sub doesn't exist, raise error
+        if get_user(db, username) is None:
+            raise credentials_exception
+        # get owner and participant privileges for authenticated user
+        owned, participating = DbProjectHandler().get_project_privileges(db=db, username=username)
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="No Authorization header")
+    except JWTError:
+        raise credentials_exception
+    # add extracted info into request header
+    headers = dict(request.scope['headers'])
+    headers[b'username'] = bytes(username, "utf-8")
+    headers[b'owned'] = bytes(owned, "utf-8")
+    headers[b'participating'] = bytes(participating, "utf-8")
+    request.scope['headers'] = [(k, v) for k, v in headers.items()]
+    response = await call_next(request)
+    return response
 
 @app.get("/")
 async def root():

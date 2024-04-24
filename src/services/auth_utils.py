@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from src.services.project_manager_tables import Users
-from src.routers.auth.schemas import User
+from src.routers.auth.schemas import CreatedUser, User
 from jose import jwt
 from dotenv import load_dotenv
 import os
@@ -43,6 +43,10 @@ def write_new_user(db: Session, user: User):
                      password=passw_byte_version)
     db.add(new_user)
     db.commit()
+    created_user = db.get(Users, user.username)
+    return CreatedUser(username=created_user.username,
+                       full_name=created_user.name,
+                       email=created_user.email)
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):

@@ -1,7 +1,7 @@
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from src.project_handler_interface import ProjectHandlerInterface
-from src.routers.project.schemas import Project
+from src.routers.project.schemas import CoreProjectData, Project, ProjectPermission
 from datetime import datetime
 from fastapi import HTTPException
 from src.services.project_manager_tables import Projects, ProjectAccess, Users, Documents
@@ -63,9 +63,23 @@ class DbProjectHandler(ProjectHandlerInterface):
     
     def get_all(self, db: Session, accessible_projects: list[int]):
         all_projects = list()
-        for project_id in accessible_projects:
-            curr_project = self.get(int(project_id), db)
-            all_projects.append(curr_project)
+        # for project_id in accessible_projects:
+        #     curr_project = self.get(int(project_id), db)
+        #     all_projects.append(curr_project)
+        all_project_raw = db.query(Projects.id,
+                                   Projects.name,
+                                   Projects.description,
+                                   Projects.created_by,
+                                   Projects.created_on).filter(
+                                       Projects.id.in_(accessible_projects))
+        for row in all_project_raw.all():
+            proj = CoreProjectData(id = row[0],
+                                   name = row[1],
+                                   description=row[2],
+                                   owner=row[3],
+                                   created_on=row[4])
+                                   #has_logo = False if row[5] is None else True)
+            all_projects.append(proj)
         return all_projects
 
     
@@ -111,6 +125,9 @@ class DbProjectHandler(ProjectHandlerInterface):
                                    access_type="participant")
         db.add(new_access)
         db.commit()
+        return ProjectPermission(project_id=project_id,
+                                 username=username,
+                                 role="participant")
         
 
     @staticmethod
@@ -121,10 +138,8 @@ class DbProjectHandler(ProjectHandlerInterface):
         participant_projects = db.execute(select(ProjectAccess.project_id)
                                     .where((ProjectAccess.username == username) & 
                                            (ProjectAccess.access_type == 'participant')))
-        list_owned_projects = [str(row[0]) for row in owned_projects]
-        list_participant_projects = [str(row[0]) for row in participant_projects]
-        owned_projects_as_str = " ".join(list_owned_projects)
-        participant_projects_as_str = " ".join(list_participant_projects)
-        return owned_projects_as_str, participant_projects_as_str
+        list_owned_projects = [row[0] for row in owned_projects]
+        list_participant_projects = [row[0] for row in participant_projects]
+        return list_owned_projects, list_participant_projects
 
         

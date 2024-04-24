@@ -29,3 +29,16 @@ class Project(BaseModel):
     logo: Optional[str] = None
     documents: Optional[List[dict[int, str]]] = None
     contributors: Optional[List[str]] = None
+
+class ProjectPermission(BaseModel):
+    project_id: int
+    username: str
+    role: str
+
+class CoreProjectData(BaseModel):
+    id: int
+    name: str
+    description: str
+    owner: str
+    created_on: datetime
+    # has_logo: bool

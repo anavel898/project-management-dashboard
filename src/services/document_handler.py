@@ -73,9 +73,4 @@ class DocumentHandler():
         if doc is None:
             raise HTTPException(status_code=404,
                                 detail=f"No document with id {document_id} found")
-
-
-    @staticmethod
-    def check_project(document_id: int, db: Session):
-        doc = db.get(Documents, document_id)
         return doc.project_id

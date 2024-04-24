@@ -13,6 +13,7 @@ class UpdateProject(BaseModel):
     name: str = Field(None, max_length=100)
     description: str = Field(None, max_length=500)
 
+
 class InviteProject(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
@@ -45,6 +46,8 @@ class ProjectLogo(BaseModel):
     logo_name: str
     uploaded_by: str
     uploaded_on: datetime
+
+
 class ProjectPermission(BaseModel):
     project_id: int
     username: str

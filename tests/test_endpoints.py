@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from src.dependecies import get_db
-from datetime import date, datetime
+from datetime import datetime
 from src.services.project_manager_tables import Base
 from src.main import app
 
@@ -82,7 +82,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual(400, expected_code)
         self.assertEqual("No Authorization header", expected_detail)
 
-
+    
     def test_b1_new_user(self):
         sign_up_data = {"username": "jandoe",
                 "full_name": "Jane Doe",
@@ -127,7 +127,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual(401, response.status_code)
         self.assertEqual("Incorrect username or password", dict(response.json())["detail"])
 
-
+    
     def test_d_create(self):
         request_body = {"name": "Project 1",
                         "description": "toy description 1"}
@@ -147,7 +147,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual([], response_as_dict["documents"])
         self.assertEqual(['johdoe'], response_as_dict["contributors"])
 
-
+    
     def test_e_get_all(self):
         # login as Jane
         log_in_data = {
@@ -205,7 +205,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual({"detail":"No project with id 45 found"},
                          response.json())
 
-       
+    
     def test_f_get_403_failure(self):
         # login as Jane and try to access John's project
         log_in_data = {
@@ -267,9 +267,7 @@ class Test_Endpoints(unittest.TestCase):
     def test_h1_grant_access(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         request_body = {"name": "jandoe"}
-        response = self.client.post("/project/1/invite",
-                                    json=request_body,
-                                    headers=header)
+        response = self.client.post("/project/1/invite", json=request_body, headers=header)
         self.assertEqual(200, response.status_code)
         self.assertEqual(1, response.json()["project_id"])
         self.assertEqual("participant", response.json()["role"])
@@ -302,7 +300,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual({"detail": "Only project owners can perform this action."},
                          response.json())
 
-
+    
     @mock.patch("src.services.db_project_handler.upload_file_to_s3")
     def test_i_upload_document(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
@@ -325,7 +323,7 @@ class Test_Endpoints(unittest.TestCase):
                                                '%Y-%m-%dT%H:%M:%S.%f'))
         self.assertEqual("text/plain", response.json()[0]["content_type"])
 
-
+    
     def test_j_get_all_documents(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.get("/project/1/documents", headers=header)
@@ -350,7 +348,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual("13", response.headers["content-length"])
         self.assertEqual(bytes("random_string", "utf-8"), response.content) 
 
-
+    
     @mock.patch("src.services.document_handler.upload_file_to_s3")
     def test_l_update_document(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
@@ -376,7 +374,6 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual("text/plain", response.json()["content_type"])
 
        
-
     @mock.patch("src.services.document_handler.delete_file_from_s3")
     def test_m_delete_document(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
@@ -409,7 +406,7 @@ class Test_Endpoints(unittest.TestCase):
                              datetime.strptime(response.json()["uploaded_on"],
                                                '%Y-%m-%dT%H:%M:%S.%f'))
 
-    
+
     def test_n2_upsert_logo_400_fail(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         file_contents = open("./toy_file.txt", "rb")
@@ -472,7 +469,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual({"detail": "Only project owners can perform this action."},
                          response.json())
     
-      
+ 
     def test_z_delete(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         request_body = {"name": "Project for testing delete",

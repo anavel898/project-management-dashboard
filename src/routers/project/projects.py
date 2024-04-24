@@ -96,20 +96,13 @@ async def add_collaborator(request: Request,
                            db: Session = Depends(get_db),
                            project_handler: object = Depends(createHandler)):
     # check if project exists
-    try:
-        project_handler.check_project_exists(project_id, db)
-    except HTTPException as ex:
-        raise ex
-    owned = request.headers["owned"]
-    if str(project_id) not in owned:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only project owner can invite participants"
-        )
-    try:
-        project_handler.grant_access(project_id, new_participant.name, db)
-    except HTTPException as ex:
-        raise ex
+    project_handler.check_project_exists(project_id, db)
+    owned = request.state.owned
+    # check owner privileges
+    check_privilege(project_id=project_id,
+                    owned_projects=owned,
+                    owner_status_required=True)
+    return project_handler.grant_access(project_id, new_participant.name, db)
     
 
 @project_router.post("/project/{project_id}/documents", response_model=list[ProjectDocument])
@@ -119,30 +112,24 @@ async def upload_document(request: Request,
                           db: Session = Depends(get_db),
                           project_handler: object = Depends(createHandler)):
     # check project exists
-    try:
-        project_handler.check_project_exists(project_id, db)
-    except HTTPException as ex:
-        raise ex
+    project_handler.check_project_exists(project_id, db)
     # check privileges
-    owned = request.headers["owned"]
-    participating = request.headers["participating"]
-    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You don't have access to this project.")
-    user_calling = request.headers["username"]
+    owned = request.state.owned
+    participating = request.state.participating
+    check_privilege(project_id=project_id,
+                    owned_projects=owned,
+                    participating_projects=participating)
+    user_calling = request.state.username
     added_docs = []
     for file in upload_files:
-        try:
-            contents = await file.read()
-            doc = project_handler.associate_document(project_id=project_id,
-                                               doc_name=file.filename,
-                                               content_type=file.content_type,
-                                               caller=user_calling,
-                                               byfile=contents,
-                                               db=db)
-            added_docs.append(doc)
-        except HTTPException as ex:
-            raise ex
+        contents = await file.read()
+        doc = project_handler.associate_document(project_id=project_id,
+                                                 doc_name=file.filename,
+                                                 content_type=file.content_type,
+                                                 caller=user_calling,
+                                                 byfile=contents,
+                                                 db=db)
+        added_docs.append(doc)
     return added_docs
 
 
@@ -152,20 +139,14 @@ async def get_all_documents(request: Request,
                             db: Session = Depends(get_db),
                             project_handler: object = Depends(createHandler)):
     # check project exists
-    try:
-        project_handler.check_project_exists(project_id, db)
-    except HTTPException as ex:
-        raise ex
+    project_handler.check_project_exists(project_id, db)
     # check privileges
-    owned = request.headers["owned"]
-    participating = request.headers["participating"]
-    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You don't have access to this project.")
-    try:
-        return project_handler.get_docs(project_id=project_id, db=db)
-    except HTTPException as ex:
-        raise ex
+    owned = request.state.owned
+    participating = request.state.participating
+    check_privilege(project_id=project_id,
+                    owned_projects=owned,
+                    participating_projects=participating)
+    return project_handler.get_docs(project_id=project_id, db=db)
     
 
 @project_router.put("/project/{project_id}/logo", response_model=ProjectLogo)
@@ -175,31 +156,25 @@ async def upload_project_logo(request: Request,
                               db: Session = Depends(get_db),
                               project_handler: object = Depends(createHandler)):
     # check project exists
-    try:
-        project_handler.check_project_exists(project_id, db)
-    except HTTPException as ex:
-        raise ex
+    project_handler.check_project_exists(project_id, db)
     # check privilege
-    owned = request.headers["owned"]
-    participating = request.headers["participating"]
-    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You don't have access to this project.")
-    # check valid upload file (content_type is image/png or image/jpg or image/jpeg)
+    owned = request.state.owned
+    participating = request.state.participating
+    check_privilege(project_id=project_id,
+                    owned_projects=owned,
+                    participating_projects=participating)
+    # check valid upload file (content_type is image/png or image/jpeg)
     if logo.content_type not in ["image/png", "image/jpeg"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Logo must be a .png or .jpeg file")
     # call method and return created logo
-    username = request.headers["username"] 
+    username = request.state.username
     content = await logo.read()
-    try:
-        return project_handler.upload_logo(project_id=project_id,
-                                           logo_name=logo.filename,
-                                           b_content=content,
-                                           logo_poster=username,
-                                           db=db)
-    except HTTPException as ex:
-        raise ex
+    return project_handler.upload_logo(project_id=project_id,
+                                       logo_name=logo.filename,
+                                       b_content=content,
+                                       logo_poster=username,
+                                       db=db)
     
 
 @project_router.get("/project/{project_id}/logo", response_model=ProjectLogo)
@@ -207,30 +182,23 @@ async def download_logo(request: Request,
                         project_id: int,
                         db: Session = Depends(get_db),
                         project_handler: object = Depends(createHandler)):
-    # check project exists
-    try:
-        project_handler.check_project_exists(project_id, db)
-    except HTTPException as ex:
-        raise ex
-    # check privilege
-    owned = request.headers["owned"]
-    participating = request.headers["participating"]
-    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You don't have access to this project.")
-    # call method and return file response
-    try:
-        name, content = project_handler.download_logo(project_id=project_id,
+    # checks
+    project_handler.check_project_exists(project_id, db)
+    owned = request.state.owned
+    participating = request.state.participating
+    check_privilege(project_id=project_id,
+                    owned_projects=owned,
+                    participating_projects=participating)
+    # calling method
+    name, content = project_handler.download_logo(project_id=project_id,
                                                       db=db)
-        return Response(
+    return Response(
             content=content,
             headers={
                 "Content-Disposition": f"attachment;filename={name}",
                 "Content-Type": "application/octet-stream"
             }
         )
-    except HTTPException as ex:
-        raise ex
     
 
 @project_router.delete("/project/{project_id}/logo")
@@ -239,21 +207,16 @@ async def delete_logo(request: Request,
                       db: Session = Depends(get_db),
                       project_handler: object = Depends(createHandler)):
     # check project exists
-    try:
-        project_handler.check_project_exists(project_id, db)
-    except HTTPException as ex:
-        raise ex
+    project_handler.check_project_exists(project_id, db)
+
     # check privilege
-    owned = request.headers["owned"]
-    participating = request.headers["participating"]
-    if str(project_id) not in owned.split(" ") and str(project_id) not in participating.split(" "):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You don't have access to this project.")
-    username = request.headers["username"]
-    try:
-        project_handler.delete_logo(project_id=project_id,
-                                    user_calling=username,
-                                    db=db)
-        return status.HTTP_204_NO_CONTENT
-    except HTTPException as ex:
-        raise ex
+    owned = request.state.owned
+    participating = request.state.participating
+    check_privilege(project_id=project_id,
+                    owned_projects=owned,
+                    participating_projects=participating)
+    username = request.state.username
+    project_handler.delete_logo(project_id=project_id,
+                                user_calling=username,
+                                db=db)
+    return status.HTTP_204_NO_CONTENT

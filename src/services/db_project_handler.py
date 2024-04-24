@@ -103,9 +103,10 @@ class DbProjectHandler(ProjectHandlerInterface):
                                    access_type="participant")
         db.add(new_access)
         db.commit()
-        return ProjectPermission(project_id=project_id,
+        perm = ProjectPermission(project_id=project_id,
                                  username=username,
                                  role="participant")
+        return perm
         
 
     @staticmethod

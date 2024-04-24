@@ -5,17 +5,17 @@ from typing import List, Optional
 class NewProject(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=100)
-    # created_by will be inferred automatically when auth logic is implemented
-    created_by: str
     description: str = Field(max_length=500)
 
 
 class UpdateProject(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    # updated_by will be inferred automatically when auth logic is implemented
-    updated_by: str
     name: str = Field(None, max_length=100)
     description: str = Field(None, max_length=500)
+
+class InviteProject(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
 
 
 class Project(BaseModel):
@@ -29,3 +29,15 @@ class Project(BaseModel):
     logo: Optional[str] = None
     documents: Optional[List[dict[int, str]]] = None
     contributors: Optional[List[str]] = None
+
+class ProjectPermission(BaseModel):
+    project_id: int
+    username: str
+    role: str
+
+class CoreProjectData(BaseModel):
+    id: int
+    name: str
+    description: str
+    owner: str
+    created_on: datetime

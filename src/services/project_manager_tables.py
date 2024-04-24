@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, LargeBinary
 from sqlalchemy.sql import text
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -11,7 +11,7 @@ class Users(Base):
     username = Column(String(10), primary_key=True)
     name = Column(String(50), nullable=False)
     email = Column(String(50), nullable=False)
-    password = Column(String, nullable=False)
+    password = Column(LargeBinary, nullable=False)   # ovo zameni u LargeBinary umesto string. PROVERI DAL CE RADITI ONO STO SI DALA NA PR
 
 class Projects(Base):
     __tablename__ = 'projects'

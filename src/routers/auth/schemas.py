@@ -19,9 +19,8 @@ class User(BaseModel):
                 email: str = Form(pattern="([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+"),
                 password: str = Form()):
         return cls(username=username, full_name=full_name, email=email, password=password)
-    
+
 class CreatedUser(BaseModel):
     username: str
     full_name: str
     email: str
-        

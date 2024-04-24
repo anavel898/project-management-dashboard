@@ -5,11 +5,14 @@ from sqlalchemy.orm import Session
 from src.services.project_manager_tables import Users
 from src.routers.auth.schemas import CreatedUser, User
 from jose import jwt
+from starlette import status
 from dotenv import load_dotenv
 import os
 
+
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
@@ -58,4 +61,17 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
     return encoded_jwt
-    
+
+
+def check_privilege(project_id: int,
+                    owned_projects: list[int],
+                    participating_projects: list[int] = [],
+                    owner_status_required: bool = False):
+    if owner_status_required:
+        if project_id not in owned_projects:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Only project owners can perform this action.")
+    else:
+        if project_id not in owned_projects and project_id not in participating_projects:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="You don't have access to this project.")

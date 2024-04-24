@@ -45,3 +45,14 @@ class ProjectLogo(BaseModel):
     logo_name: str
     uploaded_by: str
     uploaded_on: datetime
+class ProjectPermission(BaseModel):
+    project_id: int
+    username: str
+    role: str
+
+class CoreProjectData(BaseModel):
+    id: int
+    name: str
+    description: str
+    owner: str
+    created_on: datetime

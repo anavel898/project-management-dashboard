@@ -175,15 +175,10 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual(1, response_payload[0]["id"])
         self.assertEqual("toy description 1",
                          response_payload[0]["description"])
-        self.assertEqual("johdoe", response_payload[0]["created_by"])
+        self.assertEqual("johdoe", response_payload[0]["owner"])
         self.assertIsNotNone(response_payload[0]["created_on"])
-        self.assertIsNone(response_payload[0]["logo"])
-        self.assertIsNone(response_payload[0]["updated_by"])
-        self.assertIsNone(response_payload[0]["updated_on"])
-        self.assertEqual([], response_payload[0]["documents"])
-        self.assertEqual(['johdoe'], response_payload[0]["contributors"])
 
-
+    
     def test_f_get(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.get("/project/1/info", headers=header)
@@ -202,14 +197,15 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual([], response_as_dict["documents"])
         self.assertEqual(['johdoe'], response_as_dict["contributors"])
 
-
+    
     def test_f_get_404_failure(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.get("/project/45/info", headers=header)
         self.assertEqual(404, response.status_code)
         self.assertEqual({"detail":"No project with id 45 found"},
                          response.json())
-        
+
+       
     def test_f_get_403_failure(self):
         # login as Jane and try to access John's project
         log_in_data = {
@@ -224,7 +220,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual({"detail": "You don't have access to this project."},
                          get_response.json())
        
-
+    
     def test_g_update(self):
         request_body = {"description": "updated description"}
         header = {"Authorization": f"bearer {self.jon_jwt}"}
@@ -235,14 +231,14 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual("johdoe", response_as_dict["updated_by"])
         self.assertEqual("updated description", response_as_dict["description"])
     
-
+    
     def test_g_update_422_failure(self):
         invalid_request_body = {"fake_property": 5}
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.put("/project/1/info", json=invalid_request_body, headers=header)
         self.assertEqual(422, response.status_code)
     
-
+    
     def test_g_update_404_failure(self):
         request_body = {"description": "updated description"}
         header = {"Authorization": f"bearer {self.jon_jwt}"}
@@ -251,7 +247,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual({"detail":"No project with id 65 found"},
                          response.json())
 
-
+    
     def test_g_update_403_failure(self):
         log_in_data = {
             "username": "jandoe",
@@ -275,6 +271,9 @@ class Test_Endpoints(unittest.TestCase):
                                     json=request_body,
                                     headers=header)
         self.assertEqual(200, response.status_code)
+        self.assertEqual(1, response.json()["project_id"])
+        self.assertEqual("participant", response.json()["role"])
+        self.assertEqual("jandoe", response.json()["username"])
         # now jane should be able to get project 1
         log_in_data = {
             "username": "jandoe",
@@ -286,7 +285,7 @@ class Test_Endpoints(unittest.TestCase):
         get_response = self.client.get("/project/1/info", headers=jane_header)
         self.assertEqual(200, get_response.status_code)
 
-
+    
     def test_h2_grant_access_403_fail(self):
         log_in_data = {
             "username": "jandoe",
@@ -300,7 +299,7 @@ class Test_Endpoints(unittest.TestCase):
                                     json=request_body,
                                     headers=header)
         self.assertEqual(403, response.status_code)
-        self.assertEqual({"detail": "Only project owner can invite participants"},
+        self.assertEqual({"detail": "Only project owners can perform this action."},
                          response.json())
 
 
@@ -459,7 +458,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual({"detail":"No project with id 5999 found"},
                          response.json())
 
- 
+    
     def test_z_delete_403_fail(self):
         log_in_data = {
             "username": "jandoe",
@@ -470,9 +469,10 @@ class Test_Endpoints(unittest.TestCase):
         header = {"Authorization": f"bearer {jane_jwt}"}
         response = self.client.delete("/project/1", headers=header)
         self.assertEqual(403, response.status_code)
-        self.assertEqual({"detail": "Only project owner can delete it"},
+        self.assertEqual({"detail": "Only project owners can perform this action."},
                          response.json())
-        
+    
+      
     def test_z_delete(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         request_body = {"name": "Project for testing delete",

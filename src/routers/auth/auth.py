@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from starlette import status
 from sqlalchemy.orm import Session
 from src.dependecies import get_db
-from src.routers.auth.schemas import Token, User, CreatedUser
+from src.routers.auth.schemas import CreatedUser, Token, User
 from src.services.auth_utils import authenticate_user, write_new_user, create_access_token
 
 
@@ -32,7 +32,7 @@ async def login_for_access_token(
 @auth_router.post("/auth", response_model=CreatedUser)
 async def create_new_user(db: Annotated[Session, Depends(get_db)],
                           new_user: User = Depends(User.as_form),):
-    try:
+    try:        
         return write_new_user(db, new_user)
     except HTTPException as ex:
         raise ex

@@ -20,7 +20,7 @@ app.include_router(join.join_router)
 
 
 load_dotenv()
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("AUTH_SECRET_KEY")
 
 def is_excluded(path: str):
     paths_excluded_from_authorization = ["/", "/auth", "/login", "/openapi.json", "/docs", "/join"]

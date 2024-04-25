@@ -12,7 +12,7 @@ from src.services.project_manager_tables import Users
 
 
 load_dotenv()
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("JOIN_SECRET_KEY")
 
 
 def decode_join_token(token: str, db: Session):

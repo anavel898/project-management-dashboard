@@ -5,6 +5,7 @@ on: [push]
 jobs:
   linting-and-unit-tests:
     uses: ./.github/workflows/ci.yaml
+    secrets: inherit
   build:
     runs-on: ubuntu-latest
     needs: [linting-and-unit-tests]

@@ -129,43 +129,43 @@ class DbProjectHandler(ProjectHandlerInterface):
                            caller: str,
                            byfile: bytes,
                            db: Session):
-        written = False
+        # generate unique uuid
+        new_s3_key = uuid4()
+        query_for_same_uuid = db.execute(select(Documents).where(Documents.s3_key == str(new_s3_key)))
+        # if there is a document with the same key, re-generate the key
+        while query_for_same_uuid.all() != []:
+            # even though here the database is again called in a loop,
+            # the probability of the same uuid being generated twice is tiny.
+            # So, this part of the code probably won't be executed ever, but
+            # it's still here to prevent key collisions from happening
+            new_s3_key = uuid4()
+            query_for_same_uuid = db.execute(select(Documents).where(Documents.s3_key == str(new_s3_key)))
+        
         new_document = Documents(name=doc_name.strip().replace(" ","-"),
                                  project_id=project_id,
                                  added_by=caller,
                                  content_type=content_type,
+                                 s3_key=str(new_s3_key),
                                  added_on=datetime.now())
         db.add(new_document)
-        db.commit()
-        while not written:
-            # generate uuid and write to db
-            try:
-                uuid = uuid4()
-                to_update = {"s3_key": str(uuid)}
-                db.execute(update(Documents)
-                           .where(Documents.id == new_document.id)
-                           .values(to_update))
-                written = True
-            except Exception as ex:
-                continue
         # upload to s3
         try:
             upload_file_to_s3(bucket_name="project-manager-documents",
-                                    key=str(uuid),
-                                    bin_file=byfile)
+                              key=str(new_s3_key),
+                              bin_file=byfile)
         except Exception as ex:
             raise ex
         
-        # commit only if db update and upload to s3 were both success
+        # commit added document only if upload to s3 was successful
         db.commit()
-
+        # return the created document to the user
         final_document = db.get(Documents, new_document.id)
         return ProjectDocument(id=final_document.id,
-                        name=final_document.name,
-                        added_by=final_document.added_by,
-                        added_on=final_document.added_on,
-                        content_type=final_document.content_type,
-                        project_id=final_document.project_id)
+                               name=final_document.name,
+                               added_by=final_document.added_by,
+                               added_on=final_document.added_on,
+                               content_type=final_document.content_type,
+                               project_id=final_document.project_id)
 
 
     def get_docs(self,

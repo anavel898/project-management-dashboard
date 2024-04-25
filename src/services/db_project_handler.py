@@ -42,7 +42,9 @@ class DbProjectHandler(ProjectHandlerInterface):
         # create appropriate output format
         # user should just see the name of the file uploaded as logo, not the
         # s3 bucket key built by the app
-        logo_format_for_users = project.logo[len(f"project-{project_id}-logo-"):]
+        logo_format_for_users = None
+        if project.logo is not None:
+            logo_format_for_users = project.logo[len(f"project-{project_id}-logo-"):]
         project_repr = Project(id=project.id,
                                name=project.name,
                                created_by=project.created_by,

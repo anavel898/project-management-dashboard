@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
-from src.services.documents_utils import delete_file_from_s3, download_file_from_s3, upload_file_to_s3
+from src.services.aws_utils import delete_file_from_s3, download_file_from_s3, upload_file_to_s3
 from src.services.project_manager_tables import Documents, Projects
 from src.routers.documents.schemas import Document
 from datetime import datetime

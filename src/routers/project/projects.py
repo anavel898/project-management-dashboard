@@ -3,9 +3,10 @@ from starlette import status
 
 from sqlalchemy.orm import Session
 from src.project_handler_factory import createHandler
-from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission
+from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission, EmailInviteProject, SentEmailProjectInvite
 from src.dependecies import get_db
 from src.services.auth_utils import check_privilege
+from src.services.invite_utils import check_email_validity
 
 project_router = APIRouter()
 
@@ -220,3 +221,28 @@ async def delete_logo(request: Request,
                                 user_calling=username,
                                 db=db)
     return status.HTTP_204_NO_CONTENT
+
+
+@project_router.get("/project/{project_id}/share", response_model=SentEmailProjectInvite)
+async def send_email_invite(request: Request,
+                            project_id: int,
+                            email: EmailInviteProject,
+                            db: Session = Depends(get_db),
+                            project_handler: object = Depends(createHandler)):
+    project_handler.check_project_exists(project_id, db)
+    print(f"OVO JE PROJECT ID: {project_id}")
+    owned = request.state.owned
+    # check owner privileges
+    check_privilege(project_id=project_id,
+                    owned_projects=owned,
+                    owner_status_required=True)
+    invite_username = check_email_validity(email.email, db=db)
+    username = request.state.username
+    if username == invite_username:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Cannot invite yourself to project")
+    return project_handler.email_invite(project_id=project_id,
+                                        invite_sender_username=username,
+                                        invite_receiver=invite_username,
+                                        email=email.email,
+                                        db=db)

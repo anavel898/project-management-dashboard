@@ -1,10 +1,11 @@
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from src.project_handler_interface import ProjectHandlerInterface
-from src.routers.project.schemas import Project, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission
+from src.routers.project.schemas import Project, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission, SentEmailProjectInvite
 from fastapi import HTTPException
-from src.services.documents_utils import delete_file_from_s3, download_file_from_s3, upload_file_to_s3
-from src.services.project_manager_tables import Projects, ProjectAccess, Documents
+from src.services.aws_utils import delete_file_from_s3, download_file_from_s3, upload_file_to_s3, send_email_via_ses
+from src.services.invite_utils import create_join_token
+from src.services.project_manager_tables import Projects, ProjectAccess, Documents, Users
 from uuid import uuid4
 from datetime import datetime
 
@@ -93,7 +94,8 @@ class DbProjectHandler(ProjectHandlerInterface):
         return self.get(project_id, db)
     
 
-    def check_project_exists(self, project_id: int, db: Session) -> None:
+    @staticmethod
+    def check_project_exists(project_id: int, db: Session) -> None:
         project = db.get(Projects, project_id)
         if project is None:
             raise HTTPException(status_code=404,
@@ -101,8 +103,9 @@ class DbProjectHandler(ProjectHandlerInterface):
         else:
             return project
 
-
-    def grant_access(self, project_id: int, username: str, db: Session):
+    
+    @staticmethod
+    def grant_access(project_id: int, username: str, db: Session):
         new_access = ProjectAccess(project_id=project_id,
                                    username=username,
                                    access_type="participant")
@@ -259,3 +262,26 @@ class DbProjectHandler(ProjectHandlerInterface):
             raise ex
         else:
             db.commit()
+    
+
+    def email_invite(self,
+                     project_id: int,
+                     invite_sender_username: str,
+                     invite_receiver: str,
+                     email: str,
+                     db: Session):
+        proj = db.get(Projects, project_id)
+        owner = db.get(Users, invite_sender_username)
+        token_claims = {"sub": invite_receiver, "project": project_id}
+        join_token = create_join_token(to_encode=token_claims)
+        text = f"""Hello,
+        {owner.name} invited you to join the project '{proj.name}'.
+        To accept the invite go to: http://<url-where-app-is-running>/join?project_id={project_id}&join_token={join_token}.
+        This invite is valid for 3 days.
+        This is an automatic email, do not reply to this address. For additional info reply to {owner.email}"""
+        message_id = send_email_via_ses(text=text, to_address=email)
+        return SentEmailProjectInvite(aws_message_id=message_id,
+                                      join_token=join_token)
+
+
+        

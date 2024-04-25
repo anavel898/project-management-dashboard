@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.security import OAuth2PasswordBearer
 from starlette import status
 from jose import JWTError, jwt
 from src.dependecies import get_session
@@ -9,20 +8,22 @@ from .routers.project import projects
 from .routers.auth import auth
 from dotenv import load_dotenv
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from .routers.documents import documents
+from .routers.join import join
 
 app = FastAPI()
 app.include_router(projects.project_router)
 app.include_router(auth.auth_router)
 app.include_router(documents.documents_router)
+app.include_router(join.join_router)
 
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 def is_excluded(path: str):
-    paths_excluded_from_authorization = ["/", "/auth", "/login", "/openapi.json", "/docs"]
+    paths_excluded_from_authorization = ["/", "/auth", "/login", "/openapi.json", "/docs", "/join"]
     if path not in paths_excluded_from_authorization:
         return False
     else:
@@ -46,7 +47,7 @@ async def add_user_privilieges_to_header(request, call_next):
         expires: datetime = payload.get("exp")
         if username is None:
             raise credentials_exception
-        elif datetime.fromtimestamp(expires) < datetime.now():
+        elif datetime.fromtimestamp(expires, tz=timezone.utc) < datetime.now(timezone.utc):
             raise credentials_exception
         db = get_session()
         # if username specified in sub doesn't exist, raise error

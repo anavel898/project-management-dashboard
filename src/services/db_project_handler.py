@@ -276,9 +276,8 @@ class DbProjectHandler(ProjectHandlerInterface):
         join_token = create_join_token(to_encode=token_claims)
         text = f"""Hello,
         {owner.name} invited you to join the project '{proj.name}'.
-        To accept the invite go to: http://<url-where-app-is-running>/join?project_id={project_id}&join_token={join_token}.
-        This invite is valid for 3 days.
-        This is an automatic email, do not reply to this address. For additional info reply to {owner.email}"""
+        To accept the invite go to: http://<url-where-app-is-running>/join?project_id={project_id}&join_token={join_token}
+        This invite is valid for 3 days. This is an automatic email, do not reply to this address. For additional info reply to {owner.email}"""
         message_id = send_email_via_ses(text=text, to_address=email)
         return SentEmailProjectInvite(aws_message_id=message_id,
                                       join_token=join_token)

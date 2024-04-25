@@ -23,7 +23,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("AUTH_SECRET_KEY")
 
 def is_excluded(path: str):
-    paths_excluded_from_authorization = ["/", "/auth", "/login", "/openapi.json", "/docs", "/join"]
+    paths_excluded_from_authorization = ["/", "/auth", "/login", "/join", "/openapi.json", "/docs", "/favicon.ico"]
     if path not in paths_excluded_from_authorization:
         return False
     else:

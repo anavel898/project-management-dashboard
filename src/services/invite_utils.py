@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from starlette import status
 
+from src.dependecies import get_session
 from src.services.project_manager_tables import Users
 
 
@@ -38,11 +39,10 @@ def decode_join_token(token: str, db: Session):
 
 def check_email_validity(email: str,
                          db: Session):
-    user = db.execute(select(Users.username).where(Users.email == email))
-    if user is None:
+    user = db.query(Users.username).filter(Users.email == email)
+    if user.all() == []:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="No users are registered with provided email address")
-    # ovo je potencijalno mesto za error, nisam sigurna dal samo [0] ili [0][0]
     username = user.all()[0][0]
     return username
 

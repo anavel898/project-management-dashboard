@@ -20,6 +20,11 @@ def image_helper():
         m.return_value = content
     return m
 
+def email_helper():
+    m = MagicMock()
+    m.return_value = "str-simulating-message-id"
+    return m
+
 
 class Test_Endpoints(unittest.TestCase):
     
@@ -61,6 +66,7 @@ class Test_Endpoints(unittest.TestCase):
         # creating toy file to use for tests
         with open("toy_file.txt", 'w') as f:
             pass
+        cls.join_token = ""
         return super().setUpClass()
 
     @classmethod
@@ -448,6 +454,59 @@ class Test_Endpoints(unittest.TestCase):
                          try_get_logo.json())
 
 
+    @mock.patch("src.services.db_project_handler.send_email_via_ses", new_callable=email_helper)
+    def test_q1_share_via_email(self, result):
+        # create new user to invite
+        sign_up_data = {"username": "jandoe1",
+                        "full_name": "Jane Doe",
+                        "email": "jandoe1@gmail.com",
+                        "password": "1234"}
+        self.client.post("/auth", data=sign_up_data)
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        request_body = {"email": "jandoe1@gmail.com"}
+        response = self.client.get("/project/1/share",
+                                   params=request_body,
+                                   headers=header)
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual("str-simulating-message-id",
+                         response.json()["aws_message_id"])
+        self.assertIsInstance(response.json()["join_token"], str)
+        # save generated token for future use
+        self.__class__.join_token = response.json()["join_token"]
+
+    
+    def test_q2_share_via_email_400_fail(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        request_body = {"email": "johdoe@gmail.com"}
+        response = self.client.get("/project/1/share",
+                                   params=request_body,
+                                   headers=header)
+        self.assertEqual(400, response.status_code)
+        self.assertEqual({"detail": "Cannot invite yourself to project"},
+                         response.json())
+        
+    
+    def test_q3_share_via_email_400_fail_2(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        request_body = {"email": "fake_user_email@gmail.com"}
+        response = self.client.get("/project/1/share",
+                                   params=request_body,
+                                   headers=header)
+        self.assertEqual(400, response.status_code)
+        self.assertEqual({"detail": "No users are registered with provided email address"},
+                         response.json())
+
+
+    def test_r_join_via_invite(self):
+        request_params = {"project_id": 1, "join_token": self.join_token}
+        response = self.client.get("/join", params=request_params)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("participant", response.json()["role"])
+        self.assertEqual(1, response.json()["project_id"])
+        self.assertEqual("jandoe1", response.json()["username"])
+
+    
     def test_z_delete_404_fail(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.delete("/project/5999", headers=header)

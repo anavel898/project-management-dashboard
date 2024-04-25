@@ -226,17 +226,16 @@ async def delete_logo(request: Request,
 @project_router.get("/project/{project_id}/share", response_model=SentEmailProjectInvite)
 async def send_email_invite(request: Request,
                             project_id: int,
-                            email: EmailInviteProject,
+                            email: str,
                             db: Session = Depends(get_db),
                             project_handler: object = Depends(createHandler)):
     project_handler.check_project_exists(project_id, db)
-    print(f"OVO JE PROJECT ID: {project_id}")
     owned = request.state.owned
     # check owner privileges
     check_privilege(project_id=project_id,
                     owned_projects=owned,
                     owner_status_required=True)
-    invite_username = check_email_validity(email.email, db=db)
+    invite_username = check_email_validity(email, db=db)
     username = request.state.username
     if username == invite_username:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -244,5 +243,5 @@ async def send_email_invite(request: Request,
     return project_handler.email_invite(project_id=project_id,
                                         invite_sender_username=username,
                                         invite_receiver=invite_username,
-                                        email=email.email,
+                                        email=email,
                                         db=db)

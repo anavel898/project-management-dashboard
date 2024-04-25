@@ -40,6 +40,9 @@ class DbProjectHandler(ProjectHandlerInterface):
                     ProjectAccess.project_id == project_id))
         contributors_list = [row[0] for row in contributors.all()]
         # create appropriate output format
+        # user should just see the name of the file uploaded as logo, not the
+        # s3 bucket key built by the app
+        logo_format_for_users = project.logo[len(f"project-{project_id}-logo-"):]
         project_repr = Project(id=project.id,
                                name=project.name,
                                created_by=project.created_by,
@@ -47,7 +50,7 @@ class DbProjectHandler(ProjectHandlerInterface):
                                description=project.description,
                                updated_by=project.updated_by,
                                updated_on=project.updated_on,
-                               logo=project.logo,
+                               logo=logo_format_for_users,
                                documents= docs_list,
                                contributors=contributors_list)
         return project_repr

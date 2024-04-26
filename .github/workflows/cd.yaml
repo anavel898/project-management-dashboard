@@ -8,22 +8,24 @@ jobs:
   linting-and-unit-tests:
     uses: ./.github/workflows/ci.yaml
     secrets: inherit
+
   build_and_check_ecs:
     runs-on: ubuntu-latest
     needs: [linting-and-unit-tests]
-    environment:
-      name: 'image-build'
     outputs:
       image_tag: ${{ steps.build.outputs.image_tag }}
+    environment:
+      name: 'image-build'
+    
     steps:
       - uses: actions/checkout@v3
       - name: Build the Docker image
         id: build
         run: |
           TIMESTAMP=$(date +%s)
-          IMAGE_TAG=project-management-dashboard:$TIMESTAMP
-          docker build . --tag $IMAGE_TAG
-          echo "::set-output name=image_tag::$IMAGE_TAG"
+          TAG=project-management-dashboard:$TIMESTAMP
+          docker build . --tag $TAG
+          echo "image_tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Set up AWS credentials
       - uses: aws-actions/configure-aws-credentials@v4

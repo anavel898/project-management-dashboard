@@ -14,9 +14,8 @@ jobs:
     needs: [linting-and-unit-tests]
     outputs:
       image_tag: ${{ steps.build.outputs.image_tag }}
-    environment:
-      name: 'image-build'
-    
+    environment: 'image-build'
+  
     steps:
       - uses: actions/checkout@v3
       - name: Build the Docker image

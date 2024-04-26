@@ -1,6 +1,7 @@
 name: CD workflow
 
-on: [push]
+on: 
+  push:
   workflow_dispatch: 
 
 jobs:

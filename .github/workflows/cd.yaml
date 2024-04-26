@@ -68,5 +68,5 @@ jobs:
       - name: Push Docker image to ECR
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.ECR_URL }}
-          docker tag ${{ needs.build_and_check.outputs.image_tag }} ${{ secrets.ECR_URL }}/project-manager-dashboard:latest
+          docker tag ${{ needs.build_and_check_ecs.outputs.image_tag }} ${{ secrets.ECR_URL }}/project-manager-dashboard:latest
           docker push ${{ secrets.ECR_URL }}/project-manager-dashboard:latest

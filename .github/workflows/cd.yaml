@@ -55,3 +55,8 @@ jobs:
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.ECR_URL }}
           docker tag ${{ env.image_tag }} ${{ secrets.ECR_URL }}/project-manager-dashboard:latest
           docker push ${{ secrets.ECR_URL }}/project-manager-dashboard:latest
+
+      - name: Push lambda
+        run: |
+          zip -r logo-resize.zip ./logo-resize
+          aws lambda update-function-code --function-name logo-resize --zip-file fileb://logo-resize.zip

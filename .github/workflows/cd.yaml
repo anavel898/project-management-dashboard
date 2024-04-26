@@ -16,8 +16,8 @@ jobs:
       image_tag: ${{ steps.build.outputs.image_tag }}
     environment: image-build
     steps:
+      - uses: actions/checkout@v3
       - name: Build the Docker image
-        uses: actions/checkout@v3
         id: build
         run: |
           TIMESTAMP=$(date +%s)

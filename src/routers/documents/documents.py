@@ -14,7 +14,7 @@ async def get_document(request: Request,
                        document_id: int,
                        db: Annotated[Session, Depends(get_db)]):
     # check if document exists
-    project_id = DocumentHandler.check_document_exists(document_id=document_id,
+    project_id = DocumentHandler.get_document_project(document_id=document_id,
                                                        db=db)
     # check if caller is authorized to get it
     owned = request.state.owned
@@ -40,7 +40,7 @@ async def update_document(request: Request,
                           new_document: UploadFile,
                           db: Annotated[Session, Depends(get_db)]):
     # check if document exists
-    project_id = DocumentHandler.check_document_exists(document_id=document_id, db=db)
+    project_id = DocumentHandler.get_document_project(document_id=document_id, db=db)
     # check if caller is authorized to update it
     owned = request.state.owned
     participating = request.state.participating
@@ -57,12 +57,12 @@ async def update_document(request: Request,
                                         db=db)
 
 
-@documents_router.delete("/document/{document_id}")
+@documents_router.delete("/document/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(request: Request,
                           document_id: int,
                           db: Annotated[Session, Depends(get_db)]):
     # check if document exists
-    project_id = DocumentHandler.check_document_exists(document_id=document_id, db=db)
+    project_id = DocumentHandler.get_document_project(document_id=document_id, db=db)
     # check owner privileges
     owned = request.state.owned
     participating = request.state.participating
@@ -71,5 +71,4 @@ async def delete_document(request: Request,
                     participating_projects=participating)
     DocumentHandler.delete_document(document_id=document_id,
                                     db=db)
-    return status.HTTP_204_NO_CONTENT
     

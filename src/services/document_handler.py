@@ -1,10 +1,17 @@
 from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
-from src.services.documents_utils import delete_file_from_s3, download_file_from_s3, upload_file_to_s3
-from src.services.project_manager_tables import Documents, Projects
+from .documents_utils import delete_file_from_s3, download_file_from_s3, upload_file_to_s3
+from .project_manager_tables import Documents, Projects
 from src.routers.documents.schemas import Document
 from datetime import datetime
+from .common_utils import reformat_filename
+from dotenv import load_dotenv
+import os
+
+
+load_dotenv()
+DOCUMENTS_BUCKET = os.getenv("DOCUMENTS_BUCKET")
 
 class DocumentHandler():
     @staticmethod
@@ -13,7 +20,7 @@ class DocumentHandler():
         key = doc.s3_key
         name = doc.name
         content_type = doc.content_type
-        contents = download_file_from_s3(bucket_name="project-manager-documents",
+        contents = download_file_from_s3(bucket_name=DOCUMENTS_BUCKET,
                                          key=key)
         return (name, content_type, contents)
     
@@ -26,7 +33,7 @@ class DocumentHandler():
                         b_content: bytes,
                         db: Session):
         # create dict of attributes to update
-        fields_to_update = {"name": doc_name.strip().replace(" ", "-"),
+        fields_to_update = {"name": reformat_filename(doc_name),
                             "added_by": updating_user,
                             "content_type": content_type,
                             "added_on": datetime.now()}
@@ -37,7 +44,7 @@ class DocumentHandler():
                 fields_to_update)
             db.execute(q)
             # try uploading new doc with old key to s3
-            upload_file_to_s3(bucket_name="project-manager-documents",
+            upload_file_to_s3(bucket_name=DOCUMENTS_BUCKET,
                               key=key,
                               bin_file=b_content)
         except Exception as ex:
@@ -59,8 +66,7 @@ class DocumentHandler():
     def delete_document(document_id: int, db: Session):
         doc = db.get(Documents, document_id)
         try:
-            delete_file_from_s3(bucket_name="project-manager-documents",
-                                               key=doc.s3_key)
+            delete_file_from_s3(bucket_name=DOCUMENTS_BUCKET, key=doc.s3_key)
         except Exception as ex:
             raise ex
         db.delete(doc)
@@ -68,7 +74,7 @@ class DocumentHandler():
 
 
     @staticmethod
-    def check_document_exists(document_id: int, db: Session):
+    def get_document_project(document_id: int, db: Session):
         doc = db.get(Documents, document_id)
         if doc is None:
             raise HTTPException(status_code=404,

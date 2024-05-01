@@ -7,9 +7,18 @@ from src.services.documents_utils import delete_file_from_s3, download_file_from
 from src.services.project_manager_tables import Projects, ProjectAccess, Documents
 from uuid import uuid4
 from datetime import datetime
+from src.services.common_utils import reformat_filename, generate_logo_key, get_logo_name_for_user
+from dotenv import load_dotenv
+import os
 
 
 class DbProjectHandler(ProjectHandlerInterface):
+    def __init__(self):
+        load_dotenv()
+        self.raw_logos_bucket = os.getenv("RAW_LOGO_BUCKET")
+        self.processed_logos_bucket = os.getenv("RESIZED_LOGO_BUCKET")
+        self.documents_bucket = os.getenv("DOCUMENTS_BUCKET")
+
     def create(self,
                name: str,
                created_by: str,
@@ -44,7 +53,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         # s3 bucket key built by the app
         logo_format_for_users = None
         if project.logo is not None:
-            logo_format_for_users = project.logo[len(f"project-{project_id}-logo-"):]
+            logo_format_for_users = get_logo_name_for_user(project.logo, project_id)
         project_repr = Project(id=project.id,
                                name=project.name,
                                created_by=project.created_by,
@@ -93,7 +102,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         return self.get(project_id, db)
     
 
-    def check_project_exists(self, project_id: int, db: Session) -> None:
+    def get_project_internal(self, project_id: int, db: Session) -> None:
         project = db.get(Projects, project_id)
         if project is None:
             raise HTTPException(status_code=404,
@@ -146,7 +155,7 @@ class DbProjectHandler(ProjectHandlerInterface):
             new_s3_key = uuid4()
             query_for_same_uuid = db.execute(select(Documents).where(Documents.s3_key == str(new_s3_key)))
         
-        new_document = Documents(name=doc_name.strip().replace(" ","-"),
+        new_document = Documents(name=reformat_filename(doc_name),
                                  project_id=project_id,
                                  added_by=caller,
                                  content_type=content_type,
@@ -155,7 +164,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         db.add(new_document)
         # upload to s3
         try:
-            upload_file_to_s3(bucket_name="project-manager-documents",
+            upload_file_to_s3(bucket_name=self.documents_bucket,
                               key=str(new_s3_key),
                               bin_file=byfile)
         except Exception as ex:
@@ -200,8 +209,8 @@ class DbProjectHandler(ProjectHandlerInterface):
                     b_content: bytes,
                     logo_poster:str,
                     db: Session) -> ProjectLogo:
-        clean_user_provided_name = logo_name.strip().replace(" ","-")
-        logo_key = f"project-{project_id}-logo-{clean_user_provided_name}"
+        clean_user_provided_name = reformat_filename(logo_name)
+        logo_key = generate_logo_key(clean_user_provided_name, project_id)
         q = update(Projects).where(Projects.id == project_id).values(
                 {"logo": logo_key,
                  "updated_by": logo_poster,
@@ -209,14 +218,14 @@ class DbProjectHandler(ProjectHandlerInterface):
             )
         try:
             db.execute(q)
-            upload_file_to_s3("logos-raw", logo_key, b_content)
+            upload_file_to_s3(self.raw_logos_bucket, logo_key, b_content)
         except Exception as ex:
             raise ex
         else:
             # commit update of logo field only if upload finished successfully
             db.commit()
         updated_proj = db.get(Projects, project_id)
-        name_for_user = updated_proj.logo[len(f"project-{project_id}-logo-"):]
+        name_for_user = get_logo_name_for_user(updated_proj.logo, project_id)
         return ProjectLogo(project_id=updated_proj.id,
                            logo_name=name_for_user,
                            uploaded_by=updated_proj.updated_by,
@@ -230,9 +239,9 @@ class DbProjectHandler(ProjectHandlerInterface):
         if proj.logo is None:
             raise HTTPException(status_code=404,
                                 detail=f"Project with id {project_id} doesn't have a logo")
-        name_for_user = proj.logo[len(f"project-{project_id}-logo-"):]
+        name_for_user = get_logo_name_for_user(proj.logo, project_id)
         try:
-            contents = download_file_from_s3(bucket_name="logos-processed",
+            contents = download_file_from_s3(bucket_name=self.processed_logos_bucket,
                                          key=proj.logo)
         except Exception as ex:
             raise ex
@@ -246,9 +255,9 @@ class DbProjectHandler(ProjectHandlerInterface):
         proj = db.get(Projects, project_id)
         try:
             # delete from bucket with resized
-            delete_file_from_s3("logos-processed", proj.logo)
+            delete_file_from_s3(self.processed_logos_bucket, proj.logo)
             # delete from bucket with original images
-            delete_file_from_s3("logos-raw", proj.logo)
+            delete_file_from_s3(self.raw_logos_bucket, proj.logo)
             q = update(Projects).where(Projects.id == project_id).values(
                 {"logo": None,
                  "updated_by": user_calling,

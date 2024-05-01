@@ -37,7 +37,7 @@ async def get_project_details(request: Request,
                               db: Session = Depends(get_db),
                               project_handler: object = Depends(createHandler)):
     # check if project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     # extract user permissions injected by middleware
     owned = request.state.owned
     participating = request.state.participating
@@ -61,7 +61,7 @@ async def update_project_details(request: Request,
             detail="No project properties were specified in the request body"
         )
     # check if project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     participating = request.state.participating
     # check appropriate privileges
@@ -75,18 +75,17 @@ async def update_project_details(request: Request,
     return project_handler.update_info(project_id, for_update, db)
 
 
-@project_router.delete("/project/{project_id}")
+@project_router.delete("/project/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(request: Request,
                          project_id: int,
                          db: Session = Depends(get_db),
                          project_handler: object = Depends(createHandler)):
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     check_privilege(project_id=project_id,
                     owned_projects=owned,
                     owner_status_required=True)        
     project_handler.delete(project_id, db)
-    return status.HTTP_204_NO_CONTENT
     
 
 @project_router.post("/project/{project_id}/invite", response_model=ProjectPermission)
@@ -96,7 +95,7 @@ async def add_collaborator(request: Request,
                            db: Session = Depends(get_db),
                            project_handler: object = Depends(createHandler)):
     # check if project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     # check owner privileges
     check_privilege(project_id=project_id,
@@ -112,7 +111,7 @@ async def upload_document(request: Request,
                           db: Session = Depends(get_db),
                           project_handler: object = Depends(createHandler)):
     # check project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     # check privileges
     owned = request.state.owned
     participating = request.state.participating
@@ -139,7 +138,7 @@ async def get_all_documents(request: Request,
                             db: Session = Depends(get_db),
                             project_handler: object = Depends(createHandler)):
     # check project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     # check privileges
     owned = request.state.owned
     participating = request.state.participating
@@ -156,7 +155,7 @@ async def upload_project_logo(request: Request,
                               db: Session = Depends(get_db),
                               project_handler: object = Depends(createHandler)):
     # check project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     # check privilege
     owned = request.state.owned
     participating = request.state.participating
@@ -183,7 +182,7 @@ async def download_logo(request: Request,
                         db: Session = Depends(get_db),
                         project_handler: object = Depends(createHandler)):
     # checks
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     participating = request.state.participating
     check_privilege(project_id=project_id,
@@ -201,13 +200,13 @@ async def download_logo(request: Request,
         )
     
 
-@project_router.delete("/project/{project_id}/logo")
+@project_router.delete("/project/{project_id}/logo", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_logo(request: Request,
                       project_id: int,
                       db: Session = Depends(get_db),
                       project_handler: object = Depends(createHandler)):
     # check project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
 
     # check privilege
     owned = request.state.owned
@@ -218,5 +217,4 @@ async def delete_logo(request: Request,
     username = request.state.username
     project_handler.delete_logo(project_id=project_id,
                                 user_calling=username,
-                                db=db)
-    return status.HTTP_204_NO_CONTENT
+                                db=db) 

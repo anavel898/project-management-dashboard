@@ -1,9 +1,10 @@
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
+from src.logs.logger import get_logger
 from src.project_handler_interface import ProjectHandlerInterface
 from src.routers.project.schemas import Project, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission
 from fastapi import HTTPException
-from src.services.documents_utils import delete_file_from_s3, download_file_from_s3, upload_file_to_s3
+from src.services.documents_utils import S3Service
 from src.services.project_manager_tables import Projects, ProjectAccess, Documents
 from uuid import uuid4
 from datetime import datetime
@@ -11,6 +12,7 @@ from src.services.common_utils import reformat_filename, generate_logo_key, get_
 from dotenv import load_dotenv
 import os
 
+logger = get_logger(__name__)
 
 class DbProjectHandler(ProjectHandlerInterface):
     def __init__(self):
@@ -163,11 +165,11 @@ class DbProjectHandler(ProjectHandlerInterface):
                                  added_on=datetime.now())
         db.add(new_document)
         # upload to s3
+        s3_service = S3Service(self.documents_bucket)
         try:
-            upload_file_to_s3(bucket_name=self.documents_bucket,
-                              key=str(new_s3_key),
-                              bin_file=byfile)
+            s3_service.upload_file_to_s3(key=str(new_s3_key), bin_file=byfile)
         except Exception as ex:
+            logger.error(f"Failed to upload document for project {project_id}")
             raise ex
         
         # commit added document only if upload to s3 was successful
@@ -216,10 +218,12 @@ class DbProjectHandler(ProjectHandlerInterface):
                  "updated_by": logo_poster,
                  "updated_on": datetime.now()}
             )
+        s3_service_raw = S3Service(self.raw_logos_bucket)
         try:
             db.execute(q)
-            upload_file_to_s3(self.raw_logos_bucket, logo_key, b_content)
+            s3_service_raw.upload_file_to_s3(logo_key, b_content)
         except Exception as ex:
+            logger.error(f"Failed to upload logo for project {project_id}")
             raise ex
         else:
             # commit update of logo field only if upload finished successfully
@@ -240,10 +244,11 @@ class DbProjectHandler(ProjectHandlerInterface):
             raise HTTPException(status_code=404,
                                 detail=f"Project with id {project_id} doesn't have a logo")
         name_for_user = get_logo_name_for_user(proj.logo, project_id)
+        s3_service_processed = S3Service(self.processed_logos_bucket)
         try:
-            contents = download_file_from_s3(bucket_name=self.processed_logos_bucket,
-                                         key=proj.logo)
+            contents = s3_service_processed.download_file_from_s3(key=proj.logo)
         except Exception as ex:
+            logger.error(f"Failed to download logo for project {project_id}")
             raise ex
         return name_for_user, contents
     
@@ -253,11 +258,13 @@ class DbProjectHandler(ProjectHandlerInterface):
                     user_calling: str,
                     db: Session):
         proj = db.get(Projects, project_id)
+        s3_service_raw = S3Service(self.raw_logos_bucket)
+        s3_service_processed = S3Service(self.processed_logos_bucket)
         try:
             # delete from bucket with resized
-            delete_file_from_s3(self.processed_logos_bucket, proj.logo)
+            s3_service_processed.delete_file_from_s3(proj.logo)
             # delete from bucket with original images
-            delete_file_from_s3(self.raw_logos_bucket, proj.logo)
+            s3_service_raw.delete_file_from_s3(proj.logo)
             q = update(Projects).where(Projects.id == project_id).values(
                 {"logo": None,
                  "updated_by": user_calling,
@@ -265,6 +272,7 @@ class DbProjectHandler(ProjectHandlerInterface):
             )
             db.execute(q)
         except Exception as ex:
+            logger.error(f"Failed to delete logo for project {project_id}")
             raise ex
         else:
             db.commit()

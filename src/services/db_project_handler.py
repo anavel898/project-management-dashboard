@@ -1,12 +1,26 @@
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
+from src.logs.logger import get_logger
 from src.project_handler_interface import ProjectHandlerInterface
-from src.routers.project.schemas import CoreProjectData, Project, ProjectPermission
-from datetime import datetime
+from src.routers.project.schemas import Project, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission
 from fastapi import HTTPException
+from src.services.documents_utils import S3Service
 from src.services.project_manager_tables import Projects, ProjectAccess, Documents
+from uuid import uuid4
+from datetime import datetime
+from src.services.common_utils import reformat_filename, generate_logo_key, get_logo_name_for_user
+from dotenv import load_dotenv
+import os
+
+logger = get_logger(__name__)
 
 class DbProjectHandler(ProjectHandlerInterface):
+    def __init__(self):
+        load_dotenv()
+        self.raw_logos_bucket = os.getenv("RAW_LOGO_BUCKET")
+        self.processed_logos_bucket = os.getenv("RESIZED_LOGO_BUCKET")
+        self.documents_bucket = os.getenv("DOCUMENTS_BUCKET")
+
     def create(self,
                name: str,
                created_by: str,
@@ -37,6 +51,11 @@ class DbProjectHandler(ProjectHandlerInterface):
                     ProjectAccess.project_id == project_id))
         contributors_list = [row[0] for row in contributors.all()]
         # create appropriate output format
+        # user should just see the name of the file uploaded as logo, not the
+        # s3 bucket key built by the app
+        logo_format_for_users = None
+        if project.logo is not None:
+            logo_format_for_users = get_logo_name_for_user(project.logo, project_id)
         project_repr = Project(id=project.id,
                                name=project.name,
                                created_by=project.created_by,
@@ -44,7 +63,7 @@ class DbProjectHandler(ProjectHandlerInterface):
                                description=project.description,
                                updated_by=project.updated_by,
                                updated_on=project.updated_on,
-                               logo=project.logo,
+                               logo=logo_format_for_users,
                                documents= docs_list,
                                contributors=contributors_list)
         return project_repr
@@ -85,7 +104,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         return self.get(project_id, db)
     
 
-    def check_project_exists(self, project_id: int, db: Session) -> None:
+    def get_project_internal(self, project_id: int, db: Session) -> None:
         project = db.get(Projects, project_id)
         if project is None:
             raise HTTPException(status_code=404,
@@ -100,9 +119,10 @@ class DbProjectHandler(ProjectHandlerInterface):
                                    access_type="participant")
         db.add(new_access)
         db.commit()
-        return ProjectPermission(project_id=project_id,
+        perm = ProjectPermission(project_id=project_id,
                                  username=username,
                                  role="participant")
+        return perm
         
 
     @staticmethod
@@ -117,4 +137,142 @@ class DbProjectHandler(ProjectHandlerInterface):
         list_participant_projects = [row[0] for row in participant_projects]
         return list_owned_projects, list_participant_projects
 
+
+    def associate_document(self,
+                           project_id: int,
+                           doc_name: str,
+                           content_type: str,
+                           caller: str,
+                           byfile: bytes,
+                           db: Session):
+        # generate unique uuid
+        new_s3_key = uuid4()
+        query_for_same_uuid = db.execute(select(Documents).where(Documents.s3_key == str(new_s3_key)))
+        # if there is a document with the same key, re-generate the key
+        while query_for_same_uuid.all() != []:
+            # even though here the database is again called in a loop,
+            # the probability of the same uuid being generated twice is tiny.
+            # So, this part of the code probably won't be executed ever, but
+            # it's still here to prevent key collisions from happening
+            new_s3_key = uuid4()
+            query_for_same_uuid = db.execute(select(Documents).where(Documents.s3_key == str(new_s3_key)))
         
+        new_document = Documents(name=reformat_filename(doc_name),
+                                 project_id=project_id,
+                                 added_by=caller,
+                                 content_type=content_type,
+                                 s3_key=str(new_s3_key),
+                                 added_on=datetime.now())
+        db.add(new_document)
+        # upload to s3
+        s3_service = S3Service(self.documents_bucket)
+        try:
+            s3_service.upload_file_to_s3(key=str(new_s3_key), bin_file=byfile)
+        except Exception as ex:
+            logger.error(f"Failed to upload document for project {project_id}")
+            raise ex
+        
+        # commit added document only if upload to s3 was successful
+        db.commit()
+        # return the created document to the user
+        final_document = db.get(Documents, new_document.id)
+        return ProjectDocument(id=final_document.id,
+                               name=final_document.name,
+                               added_by=final_document.added_by,
+                               added_on=final_document.added_on,
+                               content_type=final_document.content_type,
+                               project_id=final_document.project_id)
+
+
+    def get_docs(self,
+                 project_id: int,
+                 db: Session):
+        all_documents = db.execute(select(Documents.id,
+                                          Documents.name,
+                                          Documents.added_by,
+                                          Documents.added_on,
+                                          Documents.content_type)
+                                          .where(Documents.project_id == project_id))
+        all_docs_formatted = []
+        for row in all_documents.all():
+            doc = ProjectDocument(id=row[0],
+                           name=row[1],
+                           added_by=row[2],
+                           added_on=row[3],
+                           content_type=row[4],
+                           project_id=project_id)
+            all_docs_formatted.append(doc)
+        return all_docs_formatted
+    
+
+    def upload_logo(self,
+                    project_id: int,
+                    logo_name: str,
+                    b_content: bytes,
+                    logo_poster:str,
+                    db: Session) -> ProjectLogo:
+        clean_user_provided_name = reformat_filename(logo_name)
+        logo_key = generate_logo_key(clean_user_provided_name, project_id)
+        q = update(Projects).where(Projects.id == project_id).values(
+                {"logo": logo_key,
+                 "updated_by": logo_poster,
+                 "updated_on": datetime.now()}
+            )
+        s3_service_raw = S3Service(self.raw_logos_bucket)
+        try:
+            db.execute(q)
+            s3_service_raw.upload_file_to_s3(logo_key, b_content)
+        except Exception as ex:
+            logger.error(f"Failed to upload logo for project {project_id}")
+            raise ex
+        else:
+            # commit update of logo field only if upload finished successfully
+            db.commit()
+        updated_proj = db.get(Projects, project_id)
+        name_for_user = get_logo_name_for_user(updated_proj.logo, project_id)
+        return ProjectLogo(project_id=updated_proj.id,
+                           logo_name=name_for_user,
+                           uploaded_by=updated_proj.updated_by,
+                           uploaded_on=updated_proj.updated_on)
+    
+
+    def download_logo(self,
+                      project_id: int,
+                      db: Session):
+        proj = db.get(Projects, project_id)
+        if proj.logo is None:
+            raise HTTPException(status_code=404,
+                                detail=f"Project with id {project_id} doesn't have a logo")
+        name_for_user = get_logo_name_for_user(proj.logo, project_id)
+        s3_service_processed = S3Service(self.processed_logos_bucket)
+        try:
+            contents = s3_service_processed.download_file_from_s3(key=proj.logo)
+        except Exception as ex:
+            logger.error(f"Failed to download logo for project {project_id}")
+            raise ex
+        return name_for_user, contents
+    
+
+    def delete_logo(self,
+                    project_id: int,
+                    user_calling: str,
+                    db: Session):
+        proj = db.get(Projects, project_id)
+        s3_service_raw = S3Service(self.raw_logos_bucket)
+        s3_service_processed = S3Service(self.processed_logos_bucket)
+        try:
+            # delete from bucket with resized
+            s3_service_processed.delete_file_from_s3(proj.logo)
+            # delete from bucket with original images
+            s3_service_raw.delete_file_from_s3(proj.logo)
+            q = update(Projects).where(Projects.id == project_id).values(
+                {"logo": None,
+                 "updated_by": user_calling,
+                 "updated_on": datetime.now()}
+            )
+            db.execute(q)
+        except Exception as ex:
+            logger.error(f"Failed to delete logo for project {project_id}")
+            raise ex
+        else:
+            db.commit()

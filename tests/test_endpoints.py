@@ -1,16 +1,27 @@
+import os
 import unittest
-from unittest.mock import patch
+from unittest import mock
+from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from src.dependecies import get_db
+from datetime import datetime
 from src.services.project_manager_tables import Base
 from src.main import app
 
 
-class TestEndpoints(unittest.TestCase):
+def image_helper():
+    m = MagicMock()
+    with open("./tests/test_logo.png", "rb") as image:
+        content = image.read()
+        m.return_value = content
+    return m
+
+
+class Test_Endpoints(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls) -> None:
@@ -47,11 +58,17 @@ class TestEndpoints(unittest.TestCase):
         response = cls.client.post("/login", data=log_in_data)
         response_as_dict = dict(response.json())
         cls.jon_jwt = response_as_dict["access_token"]
+        # creating toy file to use for tests
+        with open("toy_file.txt", 'w') as f:
+            pass
+        cls.engine = engine
         return super().setUpClass()
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.patcher.stop()
+        os.remove("./toy_file.txt")
+        cls.engine.dispose()
         return super().tearDownClass()
 
 
@@ -67,6 +84,7 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(400, expected_code)
         self.assertEqual("No Authorization header", expected_detail)
 
+    
     def test_b1_new_user(self):
         sign_up_data = {"username": "jandoe",
                 "full_name": "Jane Doe",
@@ -111,7 +129,7 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(401, response.status_code)
         self.assertEqual("Incorrect username or password", dict(response.json())["detail"])
 
-
+    
     def test_d_create(self):
         request_body = {"name": "Project 1",
                         "description": "toy description 1"}
@@ -131,7 +149,7 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual([], response_as_dict["documents"])
         self.assertEqual(['johdoe'], response_as_dict["contributors"])
 
-
+    
     def test_e_get_all(self):
         # login as Jane
         log_in_data = {
@@ -189,7 +207,7 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual({"detail":"No project with id 45 found"},
                          response.json())
 
-       
+    
     def test_f_get_403_failure(self):
         # login as Jane and try to access John's project
         log_in_data = {
@@ -251,9 +269,7 @@ class TestEndpoints(unittest.TestCase):
     def test_h1_grant_access(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         request_body = {"name": "jandoe"}
-        response = self.client.post("/project/1/invite",
-                                    json=request_body,
-                                    headers=header)
+        response = self.client.post("/project/1/invite", json=request_body, headers=header)
         self.assertEqual(200, response.status_code)
         self.assertEqual(1, response.json()["project_id"])
         self.assertEqual("participant", response.json()["role"])
@@ -287,6 +303,153 @@ class TestEndpoints(unittest.TestCase):
                          response.json())
 
     
+    @mock.patch("src.services.db_project_handler.S3Service.upload_file_to_s3")
+    def test_i_upload_document(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        file_contents = open("./toy_file.txt", "rb")
+        doc_file = {"upload_files":
+                    ("toy_file.txt", file_contents, "text/plain")}
+        timestamp = datetime.now()
+        response = self.client.post("/project/1/documents",
+                                    headers=header,
+                                    files=doc_file)
+        file_contents.close()
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual(1, len(response.json()))
+        self.assertEqual(1, response.json()[0]["id"])
+        self.assertEqual("toy_file.txt", response.json()[0]["name"])
+        self.assertEqual("johdoe", response.json()[0]["added_by"])
+        self.assertLessEqual(timestamp,
+                             datetime.strptime(response.json()[0]["added_on"],
+                                               '%Y-%m-%dT%H:%M:%S.%f'))
+        self.assertEqual("text/plain", response.json()[0]["content_type"])
+
+    
+    def test_j_get_all_documents(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/project/1/documents", headers=header)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(1, len(response.json()))
+        self.assertEqual(1, response.json()[0]["id"])
+        self.assertEqual("toy_file.txt", response.json()[0]["name"])
+        self.assertEqual("johdoe", response.json()[0]["added_by"])
+        self.assertIsNotNone(response.json()[0]["added_on"])
+        self.assertEqual("text/plain", response.json()[0]["content_type"])
+
+
+    @mock.patch("src.services.document_handler.S3Service.download_file_from_s3", return_value=bytes("random_string", "utf-8"))
+    def test_k_download_document(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/document/1", headers=header)
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual("attachment;filename=toy_file.txt",
+                         response.headers["content-disposition"])
+        self.assertEqual("text/plain", response.headers["content-type"])
+        self.assertEqual("13", response.headers["content-length"])
+        self.assertEqual(bytes("random_string", "utf-8"), response.content) 
+
+    
+    @mock.patch("src.services.document_handler.S3Service.upload_file_to_s3")
+    def test_l_update_document(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        with open("toy_file_2.txt", 'w') as f:
+            pass
+        file_contents = open("./toy_file.txt", "rb")
+        doc_file = {"new_document":
+                    ("toy_file_2.txt", file_contents, "text/plain")}
+        timestamp = datetime.now()
+        response = self.client.put("/document/1",
+                                    headers=header,
+                                    files=doc_file)
+        file_contents.close()
+        os.remove("./toy_file_2.txt")
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual(1, response.json()["id"])
+        self.assertEqual("toy_file_2.txt", response.json()["name"])
+        self.assertEqual("johdoe", response.json()["added_by"])
+        self.assertLessEqual(timestamp,
+                             datetime.strptime(response.json()["added_on"],
+                                               '%Y-%m-%dT%H:%M:%S.%f'))
+        self.assertEqual("text/plain", response.json()["content_type"])
+
+       
+    @mock.patch("src.services.document_handler.S3Service.delete_file_from_s3")
+    def test_m_delete_document(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.delete("/document/1", headers=header)
+        self.assertEqual(204, response.status_code)
+        self.assertTrue(result.called)
+        try_getting_doc = self.client.get("/document/1", headers=header)
+        self.assertEqual(404, try_getting_doc.status_code)
+        self.assertEqual({"detail":"No document with id 1 found"},
+                         try_getting_doc.json())
+
+
+    @mock.patch("src.services.db_project_handler.S3Service.upload_file_to_s3")
+    def test_n1_upsert_logo(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        file_contents = open("./tests/test_logo.png", "rb")
+        doc_file = {"logo":
+                    ("test_logo.png", file_contents, "image/png")}
+        timestamp = datetime.now()
+        response = self.client.put("/project/1/logo",
+                                    headers=header,
+                                    files=doc_file)
+        file_contents.close()
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual(1, response.json()["project_id"])
+        self.assertEqual("test_logo.png", response.json()["logo_name"])
+        self.assertEqual("johdoe", response.json()["uploaded_by"])
+        self.assertLessEqual(timestamp,
+                             datetime.strptime(response.json()["uploaded_on"],
+                                               '%Y-%m-%dT%H:%M:%S.%f'))
+
+
+    def test_n2_upsert_logo_400_fail(self):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        file_contents = open("./toy_file.txt", "rb")
+        doc_file = {"logo":
+                    ("test_logo.png", file_contents, "text/plain")}
+        response = self.client.put("/project/1/logo",
+                                    headers=header,
+                                    files=doc_file)
+        file_contents.close()
+        self.assertEqual(400, response.status_code)
+        self.assertEqual({"detail": "Logo must be a .png or .jpeg file"},
+                         response.json())
+
+
+    @mock.patch("src.services.db_project_handler.S3Service.download_file_from_s3", new_callable=image_helper)
+    def test_o_download_logo(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.get("/project/1/logo", headers=header)
+        image = bytes()
+        with open("./tests/test_logo.png", "rb") as i:
+            image = i.read()
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(result.called)
+        self.assertEqual("attachment;filename=test_logo.png",
+                         response.headers["content-disposition"])
+        self.assertEqual("application/octet-stream",
+                         response.headers["content-type"])
+        self.assertEqual(image, response.content)
+
+
+    @mock.patch("src.services.db_project_handler.S3Service.delete_file_from_s3")
+    def test_p_delete_logo(self, result):
+        header = {"Authorization": f"bearer {self.jon_jwt}"}
+        response = self.client.delete("/project/1/logo", headers=header)
+        self.assertEqual(204, response.status_code)
+        try_get_logo = self.client.get("/project/1/logo", headers=header)
+        self.assertEqual(404, try_get_logo.status_code)
+        self.assertEqual({"detail": "Project with id 1 doesn't have a logo"},
+                         try_get_logo.json())
+
+
     def test_z_delete_404_fail(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.delete("/project/5999", headers=header)
@@ -308,7 +471,7 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual({"detail": "Only project owners can perform this action."},
                          response.json())
     
-      
+ 
     def test_z_delete(self):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         request_body = {"name": "Project for testing delete",
@@ -317,6 +480,4 @@ class TestEndpoints(unittest.TestCase):
         post_response = self.client.post("/projects", json=request_body, headers=header)
         created_id = dict(post_response.json())["id"]
         response = self.client.delete(f"/project/{created_id}", headers=header)
-        self.assertEqual(200, response.status_code)
-
-       
+        self.assertEqual(204, response.status_code)

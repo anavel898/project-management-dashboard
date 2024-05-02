@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from starlette import status
 from jose import JWTError, jwt
 from src.dependecies import get_session
@@ -9,10 +10,13 @@ from .routers.auth import auth
 from dotenv import load_dotenv
 import os
 from datetime import datetime
+from .routers.documents import documents
 
 app = FastAPI()
 app.include_router(projects.project_router)
 app.include_router(auth.auth_router)
+app.include_router(documents.documents_router)
+
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")

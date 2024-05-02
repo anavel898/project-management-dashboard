@@ -11,7 +11,7 @@ class Users(Base):
     username = Column(String(10), primary_key=True)
     name = Column(String(50), nullable=False)
     email = Column(String(50), nullable=False)
-    password = Column(LargeBinary, nullable=False)   # ovo zameni u LargeBinary umesto string. PROVERI DAL CE RADITI ONO STO SI DALA NA PR
+    password = Column(LargeBinary, nullable=False)
 
 class Projects(Base):
     __tablename__ = 'projects'
@@ -25,18 +25,20 @@ class Projects(Base):
     description = Column(String(500), nullable=False)
     updated_by = Column(String(10))
     updated_on = Column(DateTime)
-    logo = Column(String(2048))
+    logo = Column(String(300))
 
 class Documents(Base):
     __tablename__ = 'documents'
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(50), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(300), nullable=False)
     project_id = Column(Integer,
                         ForeignKey('projects.id', ondelete='CASCADE'),
                         nullable=False)
     added_by = Column(String(10), ForeignKey('users.username'), nullable=False)
-    link_to_document = Column(String(2048), nullable=False)
+    content_type = Column(String(50), nullable=False)
+    s3_key = Column(String(36), unique=True)
+    added_on = Column(DateTime, nullable=False)
 
 class ProjectAccess(Base):
     __tablename__ = 'project_access'

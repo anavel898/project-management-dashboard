@@ -61,12 +61,14 @@ class Test_Endpoints(unittest.TestCase):
         # creating toy file to use for tests
         with open("toy_file.txt", 'w') as f:
             pass
+        cls.engine = engine
         return super().setUpClass()
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.patcher.stop()
         os.remove("./toy_file.txt")
+        cls.engine.dispose()
         return super().tearDownClass()
 
 

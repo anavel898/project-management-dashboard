@@ -4,7 +4,7 @@ from src.logs.logger import get_logger
 from src.project_handler_interface import ProjectHandlerInterface
 from src.routers.project.schemas import Project, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission, SentEmailProjectInvite
 from fastapi import HTTPException
-from src.services.aws_utils import send_email_via_ses
+from src.services.aws_utils import SESService
 from src.services.invite_utils import create_join_token
 from src.services.project_manager_tables import Projects, ProjectAccess, Documents, Users
 from src.services.documents_utils import S3Service
@@ -295,7 +295,7 @@ class DbProjectHandler(ProjectHandlerInterface):
         {owner.name} invited you to join the project '{proj.name}'.
         To accept the invite go to: http://<url-where-app-is-running>/join?project_id={project_id}&join_token={join_token}
         This invite is valid for 3 days. This is an automatic email, do not reply to this address. For additional info reply to {owner.email}"""
-        message_id = send_email_via_ses(text=text, to_address=email)
+        message_id = SESService().send_email_via_ses(text=text, to_address=email)
         return SentEmailProjectInvite(aws_message_id=message_id,
                                       join_token=join_token)
 

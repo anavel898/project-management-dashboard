@@ -2,18 +2,16 @@ from datetime import datetime, timedelta, timezone
 import os
 from fastapi import HTTPException
 from jose import jwt, JWTError
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from starlette import status
-
-from src.dependecies import get_session
+from src.logs.logger import get_logger
 from src.services.project_manager_tables import Users
 
 
 load_dotenv()
 SECRET_KEY = os.getenv("JOIN_SECRET_KEY")
-
+logger = get_logger(__name__)
 
 def decode_join_token(token: str, db: Session):
     join_exception = HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -21,11 +19,13 @@ def decode_join_token(token: str, db: Session):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
     except JWTError:
+        logger.error(f"Join token could not be decoded")
         raise join_exception
     username: str = payload.get("sub")
     expires: datetime = payload.get("exp")
     project_id: int = payload.get("project")
     if username is None:
+        logger.error(f"Join token does not contain user in payload")
         raise join_exception
     elif datetime.fromtimestamp(expires, tz=timezone.utc) < datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -33,14 +33,16 @@ def decode_join_token(token: str, db: Session):
     # check if username from sub claim exists in db
     user = db.get(Users, username)
     if user is None:
+        logger.error(f"Join token with non existent user in payload")
         raise join_exception
     return username, project_id
 
 
-def check_email_validity(email: str,
+def get_user_from_email(email: str,
                          db: Session):
     user = db.query(Users.username).filter(Users.email == email)
     if user.all() == []:
+        logger.error(f"Join attempted for non-existent user with email {email}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="No users are registered with provided email address")
     username = user.all()[0][0]

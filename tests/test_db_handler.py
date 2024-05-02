@@ -21,6 +21,11 @@ def image_helper():
         m.return_value = content
     return m
 
+def email_helper():
+    m = mock.MagicMock()
+    m.return_value = "str-simulating-message-id"
+    return m
+
 
 class Test_Db_Handler(unittest.TestCase):
     @classmethod
@@ -230,6 +235,19 @@ class Test_Db_Handler(unittest.TestCase):
         self.assertIsNone(proj.logo)
         self.assertEqual("username2", proj.updated_by)
         self.assertIsInstance(proj.updated_on, datetime)
+
+
+    @mock.patch("src.services.db_project_handler.SESService.send_email_via_ses", new_callable=email_helper)
+    def test_m_email_invite(self, result):
+        handler = DbProjectHandler()
+        invite = handler.email_invite(project_id=1,
+                                      invite_sender_username="username1",
+                                      invite_receiver="username2",
+                                      email="new@gmail.com",
+                                      db=self.session)
+        self.assertTrue(result.called)
+        self.assertEqual("str-simulating-message-id", invite.aws_message_id)
+        self.assertIsInstance(invite.join_token, str)
 
 
     def test_z_delete(self):

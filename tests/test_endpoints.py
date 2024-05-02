@@ -456,7 +456,7 @@ class Test_Endpoints(unittest.TestCase):
                          try_get_logo.json())
 
 
-    @mock.patch("src.services.db_project_handler.send_email_via_ses", new_callable=email_helper)
+    @mock.patch("src.services.db_project_handler.SESService.send_email_via_ses", new_callable=email_helper)
     def test_q1_share_via_email(self, result):
         # create new user to invite
         sign_up_data = {"username": "jandoe1",

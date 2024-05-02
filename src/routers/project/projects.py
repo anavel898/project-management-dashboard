@@ -7,7 +7,7 @@ from src.project_handler_factory import createHandler
 from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission, EmailInviteProject, SentEmailProjectInvite
 from src.dependecies import get_db
 from src.services.auth_utils import check_privilege
-from src.services.invite_utils import check_email_validity
+from src.services.invite_utils import get_user_from_email
 
 project_router = APIRouter()
 logger = get_logger(__name__)
@@ -24,7 +24,7 @@ async def get_all_projects(request: Request,
     return resp
 
 
-@project_router.post("/projects")
+@project_router.post("/projects", response_model=Project)
 async def make_new_project(request: Request,
                            new_project: NewProject,
                            db: Session = Depends(get_db),
@@ -247,19 +247,21 @@ async def send_email_invite(request: Request,
                             email: str,
                             db: Session = Depends(get_db),
                             project_handler: object = Depends(createHandler)):
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     # check owner privileges
     check_privilege(project_id=project_id,
                     owned_projects=owned,
                     owner_status_required=True)
-    invite_username = check_email_validity(email, db=db)
+    invite_username = get_user_from_email(email, db=db)
     username = request.state.username
     if username == invite_username:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Cannot invite yourself to project")
-    return project_handler.email_invite(project_id=project_id,
+    resp = project_handler.email_invite(project_id=project_id,
                                         invite_sender_username=username,
                                         invite_receiver=invite_username,
                                         email=email,
                                         db=db)
+    logger.info(f"Sent email invite to {invite_username} for project {project_id}")
+    return resp

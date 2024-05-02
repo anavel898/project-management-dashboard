@@ -55,4 +55,8 @@ jobs:
           LOCAL_STORAGE: ${{ secrets.LOCAL_STORAGE }}
           AUTH_SECRET_KEY: ${{ secrets.AUTH_SECRET_KEY }}
           JOIN_SECRET_KEY: ${{ secrets.JOIN_SECRET_KEY }}
+          RAW_LOGO_BUCKET: ${{ secrets.RAW_LOGO_BUCKET }}
+          RESIZED_LOGO_BUCKET: ${{ secrets.RESIZED_LOGO_BUCKET }}
+          DOCUMENTS_BUCKET: ${{ secrets.DOCUMENTS_BUCKET }}
+          LOG_FILE_PATH: ${{ secrets.LOG_FILE_PATH }}
         run: python -m unittest discover tests

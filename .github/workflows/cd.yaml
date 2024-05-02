@@ -58,5 +58,5 @@ jobs:
 
       - name: Push lambda
         run: |
-          zip -r logo-resize.zip ./logo-resize
+          zip -r logo-resize.zip ./logo-resize/lambda_function.py
           aws lambda update-function-code --function-name logo-resize --zip-file fileb://logo-resize.zip

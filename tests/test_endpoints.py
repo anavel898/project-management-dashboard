@@ -15,7 +15,7 @@ from src.main import app
 
 def image_helper():
     m = MagicMock()
-    with open("test_logo.png", "rb") as image:
+    with open("./tests/test_logo.png", "rb") as image:
         content = image.read()
         m.return_value = content
     return m
@@ -67,12 +67,14 @@ class Test_Endpoints(unittest.TestCase):
         with open("toy_file.txt", 'w') as f:
             pass
         cls.join_token = ""
+        cls.engine = engine
         return super().setUpClass()
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.patcher.stop()
         os.remove("./toy_file.txt")
+        cls.engine.dispose()
         return super().tearDownClass()
 
 
@@ -307,7 +309,7 @@ class Test_Endpoints(unittest.TestCase):
                          response.json())
 
     
-    @mock.patch("src.services.db_project_handler.upload_file_to_s3")
+    @mock.patch("src.services.db_project_handler.S3Service.upload_file_to_s3")
     def test_i_upload_document(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         file_contents = open("./toy_file.txt", "rb")
@@ -342,7 +344,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual("text/plain", response.json()[0]["content_type"])
 
 
-    @mock.patch("src.services.document_handler.download_file_from_s3", return_value=bytes("random_string", "utf-8"))
+    @mock.patch("src.services.document_handler.S3Service.download_file_from_s3", return_value=bytes("random_string", "utf-8"))
     def test_k_download_document(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.get("/document/1", headers=header)
@@ -355,7 +357,7 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual(bytes("random_string", "utf-8"), response.content) 
 
     
-    @mock.patch("src.services.document_handler.upload_file_to_s3")
+    @mock.patch("src.services.document_handler.S3Service.upload_file_to_s3")
     def test_l_update_document(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         with open("toy_file_2.txt", 'w') as f:
@@ -380,11 +382,11 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual("text/plain", response.json()["content_type"])
 
        
-    @mock.patch("src.services.document_handler.delete_file_from_s3")
+    @mock.patch("src.services.document_handler.S3Service.delete_file_from_s3")
     def test_m_delete_document(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.delete("/document/1", headers=header)
-        self.assertEqual(200, response.status_code)
+        self.assertEqual(204, response.status_code)
         self.assertTrue(result.called)
         try_getting_doc = self.client.get("/document/1", headers=header)
         self.assertEqual(404, try_getting_doc.status_code)
@@ -392,10 +394,10 @@ class Test_Endpoints(unittest.TestCase):
                          try_getting_doc.json())
 
 
-    @mock.patch("src.services.db_project_handler.upload_file_to_s3")
+    @mock.patch("src.services.db_project_handler.S3Service.upload_file_to_s3")
     def test_n1_upsert_logo(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
-        file_contents = open("test_logo.png", "rb")
+        file_contents = open("./tests/test_logo.png", "rb")
         doc_file = {"logo":
                     ("test_logo.png", file_contents, "image/png")}
         timestamp = datetime.now()
@@ -427,12 +429,12 @@ class Test_Endpoints(unittest.TestCase):
                          response.json())
 
 
-    @mock.patch("src.services.db_project_handler.download_file_from_s3", new_callable=image_helper)
+    @mock.patch("src.services.db_project_handler.S3Service.download_file_from_s3", new_callable=image_helper)
     def test_o_download_logo(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.get("/project/1/logo", headers=header)
         image = bytes()
-        with open("test_logo.png", "rb") as i:
+        with open("./tests/test_logo.png", "rb") as i:
             image = i.read()
         self.assertEqual(200, response.status_code)
         self.assertTrue(result.called)
@@ -443,11 +445,11 @@ class Test_Endpoints(unittest.TestCase):
         self.assertEqual(image, response.content)
 
 
-    @mock.patch("src.services.db_project_handler.delete_file_from_s3")
+    @mock.patch("src.services.db_project_handler.S3Service.delete_file_from_s3")
     def test_p_delete_logo(self, result):
         header = {"Authorization": f"bearer {self.jon_jwt}"}
         response = self.client.delete("/project/1/logo", headers=header)
-        self.assertEqual(200, response.status_code)
+        self.assertEqual(204, response.status_code)
         try_get_logo = self.client.get("/project/1/logo", headers=header)
         self.assertEqual(404, try_get_logo.status_code)
         self.assertEqual({"detail": "Project with id 1 doesn't have a logo"},
@@ -537,4 +539,4 @@ class Test_Endpoints(unittest.TestCase):
         post_response = self.client.post("/projects", json=request_body, headers=header)
         created_id = dict(post_response.json())["id"]
         response = self.client.delete(f"/project/{created_id}", headers=header)
-        self.assertEqual(200, response.status_code)
+        self.assertEqual(204, response.status_code)

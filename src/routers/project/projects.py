@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Response, Upload
 from starlette import status
 
 from sqlalchemy.orm import Session
+from src.logs.logger import get_logger
 from src.project_handler_factory import createHandler
 from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission, EmailInviteProject, SentEmailProjectInvite
 from src.dependecies import get_db
@@ -9,6 +10,7 @@ from src.services.auth_utils import check_privilege
 from src.services.invite_utils import check_email_validity
 
 project_router = APIRouter()
+logger = get_logger(__name__)
 
 @project_router.get("/projects", response_model=list[CoreProjectData])
 async def get_all_projects(request: Request,
@@ -17,7 +19,9 @@ async def get_all_projects(request: Request,
     owned = request.state.owned
     participating = request.state.participating
     accessible = owned + participating
-    return project_handler.get_all(db, accessible)
+    resp = project_handler.get_all(db, accessible)
+    logger.info(f"Successfully retrieved projects for user '{request.state.username}'")
+    return resp
 
 
 @project_router.post("/projects")
@@ -26,11 +30,12 @@ async def make_new_project(request: Request,
                            db: Session = Depends(get_db),
                            project_handler: object = Depends(createHandler)):
     user_calling = request.state.username
-    return project_handler.create(name=new_project.name,
+    resp = project_handler.create(name=new_project.name,
                                   created_by=user_calling,
                                   description=new_project.description,
                                   db=db)
-    
+    logger.info(f"Created new project with id {resp.id} for user '{user_calling}'")
+    return resp
 
 @project_router.get("/project/{project_id}/info", response_model=Project)
 async def get_project_details(request: Request,
@@ -38,7 +43,7 @@ async def get_project_details(request: Request,
                               db: Session = Depends(get_db),
                               project_handler: object = Depends(createHandler)):
     # check if project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     # extract user permissions injected by middleware
     owned = request.state.owned
     participating = request.state.participating
@@ -46,7 +51,9 @@ async def get_project_details(request: Request,
     check_privilege(project_id=project_id,
                     owned_projects=owned,
                     participating_projects=participating)
-    return project_handler.get(project_id=project_id, db=db)
+    resp = project_handler.get(project_id=project_id, db=db)
+    logger.info(f"Successfully retrieved project with id {project_id}")
+    return resp
     
 
 @project_router.put("/project/{project_id}/info", response_model=Project)
@@ -62,7 +69,7 @@ async def update_project_details(request: Request,
             detail="No project properties were specified in the request body"
         )
     # check if project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     participating = request.state.participating
     # check appropriate privileges
@@ -73,21 +80,23 @@ async def update_project_details(request: Request,
     user_calling = request.state.username
     for_update = new_info.model_dump(exclude_unset=True)
     for_update.update({"updated_by":  user_calling})
-    return project_handler.update_info(project_id, for_update, db)
+    resp = project_handler.update_info(project_id, for_update, db)
+    logger.info(f"Updated project {project_id} details")
+    return resp
 
 
-@project_router.delete("/project/{project_id}")
+@project_router.delete("/project/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(request: Request,
                          project_id: int,
                          db: Session = Depends(get_db),
                          project_handler: object = Depends(createHandler)):
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     check_privilege(project_id=project_id,
                     owned_projects=owned,
                     owner_status_required=True)        
     project_handler.delete(project_id, db)
-    return status.HTTP_204_NO_CONTENT
+    logger.info(f"Project with id {project_id} deleted")
     
 
 @project_router.post("/project/{project_id}/invite", response_model=ProjectPermission)
@@ -97,13 +106,15 @@ async def add_collaborator(request: Request,
                            db: Session = Depends(get_db),
                            project_handler: object = Depends(createHandler)):
     # check if project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     # check owner privileges
     check_privilege(project_id=project_id,
                     owned_projects=owned,
                     owner_status_required=True)
-    return project_handler.grant_access(project_id, new_participant.name, db)
+    resp = project_handler.grant_access(project_id, new_participant.name, db)
+    logger.info(f"Added user {new_participant.name} as a participant to project {project_id}")
+    return resp
     
 
 @project_router.post("/project/{project_id}/documents", response_model=list[ProjectDocument])
@@ -113,7 +124,7 @@ async def upload_document(request: Request,
                           db: Session = Depends(get_db),
                           project_handler: object = Depends(createHandler)):
     # check project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     # check privileges
     owned = request.state.owned
     participating = request.state.participating
@@ -131,6 +142,7 @@ async def upload_document(request: Request,
                                                  byfile=contents,
                                                  db=db)
         added_docs.append(doc)
+    logger.info(f"Added {len(added_docs)} documents to project {project_id}")
     return added_docs
 
 
@@ -140,14 +152,16 @@ async def get_all_documents(request: Request,
                             db: Session = Depends(get_db),
                             project_handler: object = Depends(createHandler)):
     # check project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     # check privileges
     owned = request.state.owned
     participating = request.state.participating
     check_privilege(project_id=project_id,
                     owned_projects=owned,
                     participating_projects=participating)
-    return project_handler.get_docs(project_id=project_id, db=db)
+    resp = project_handler.get_docs(project_id=project_id, db=db)
+    logger.info(f"Retrieved info on documents for project {project_id}")
+    return resp
     
 
 @project_router.put("/project/{project_id}/logo", response_model=ProjectLogo)
@@ -157,7 +171,7 @@ async def upload_project_logo(request: Request,
                               db: Session = Depends(get_db),
                               project_handler: object = Depends(createHandler)):
     # check project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     # check privilege
     owned = request.state.owned
     participating = request.state.participating
@@ -171,11 +185,13 @@ async def upload_project_logo(request: Request,
     # call method and return created logo
     username = request.state.username
     content = await logo.read()
-    return project_handler.upload_logo(project_id=project_id,
+    resp = project_handler.upload_logo(project_id=project_id,
                                        logo_name=logo.filename,
                                        b_content=content,
                                        logo_poster=username,
                                        db=db)
+    logger.info(f"Updated logo for project {project_id}")
+    return resp
     
 
 @project_router.get("/project/{project_id}/logo", response_model=ProjectLogo)
@@ -184,7 +200,7 @@ async def download_logo(request: Request,
                         db: Session = Depends(get_db),
                         project_handler: object = Depends(createHandler)):
     # checks
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
     owned = request.state.owned
     participating = request.state.participating
     check_privilege(project_id=project_id,
@@ -193,22 +209,24 @@ async def download_logo(request: Request,
     # calling method
     name, content = project_handler.download_logo(project_id=project_id,
                                                       db=db)
-    return Response(
+    resp = Response(
             content=content,
             headers={
                 "Content-Disposition": f"attachment;filename={name}",
                 "Content-Type": "application/octet-stream"
             }
         )
+    logger.info(f"Retrieved logo for project {project_id}")
+    return resp
     
 
-@project_router.delete("/project/{project_id}/logo")
+@project_router.delete("/project/{project_id}/logo", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_logo(request: Request,
                       project_id: int,
                       db: Session = Depends(get_db),
                       project_handler: object = Depends(createHandler)):
     # check project exists
-    project_handler.check_project_exists(project_id, db)
+    project_handler.get_project_internal(project_id, db)
 
     # check privilege
     owned = request.state.owned
@@ -220,7 +238,7 @@ async def delete_logo(request: Request,
     project_handler.delete_logo(project_id=project_id,
                                 user_calling=username,
                                 db=db)
-    return status.HTTP_204_NO_CONTENT
+    logger.info(f"Deleted logo for project {project_id}")
 
 
 @project_router.get("/project/{project_id}/share", response_model=SentEmailProjectInvite)

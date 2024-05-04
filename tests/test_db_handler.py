@@ -21,6 +21,11 @@ def image_helper():
         m.return_value = content
     return m
 
+def email_helper():
+    m = mock.MagicMock()
+    m.return_value = "str-simulating-message-id"
+    return m
+
 
 class Test_Db_Handler(unittest.TestCase):
     @classmethod
@@ -198,6 +203,7 @@ class Test_Db_Handler(unittest.TestCase):
                                    logo_name="test_logo.png",
                                    b_content=file_contents,
                                    logo_poster="username1",
+                                   content_type="image/png",
                                    db=self.session)
         file_contents.close()
         self.assertTrue(result.called)
@@ -230,6 +236,21 @@ class Test_Db_Handler(unittest.TestCase):
         self.assertIsNone(proj.logo)
         self.assertEqual("username2", proj.updated_by)
         self.assertIsInstance(proj.updated_on, datetime)
+
+
+    def test_m_email_invite(self):
+        handler = DbProjectHandler()
+        email_text, join_token = handler.email_invite(project_id=1,
+                                                      invite_sender_username="username1",
+                                                      invite_receiver="username2",
+                                                      email="new@gmail.com",
+                                                      db=self.session)
+        desired_text = f"""Hello,
+        Test User invited you to join the project 'Project 1'.
+        To accept the invite go to: http://<url-where-app-is-running>/join?project_id=1&join_token={join_token}
+        This invite is valid for 3 days. This is an automatic email, do not reply to this address. For additional info reply to test@gmail.com"""
+        self.assertEqual(desired_text, email_text)
+        self.assertIsInstance(join_token, str)
 
 
     def test_z_delete(self):

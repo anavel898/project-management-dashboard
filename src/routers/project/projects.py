@@ -4,9 +4,11 @@ from starlette import status
 from sqlalchemy.orm import Session
 from src.logs.logger import get_logger
 from src.project_handler_factory import createHandler
-from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission
+from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission, EmailInviteProject, SentEmailProjectInvite
 from src.dependecies import get_db
 from src.services.auth_utils import check_privilege
+from src.services.aws_utils import SESService
+from src.services.invite_utils import get_user_from_email
 
 project_router = APIRouter()
 logger = get_logger(__name__)
@@ -23,7 +25,7 @@ async def get_all_projects(request: Request,
     return resp
 
 
-@project_router.post("/projects")
+@project_router.post("/projects", response_model=Project)
 async def make_new_project(request: Request,
                            new_project: NewProject,
                            db: Session = Depends(get_db),
@@ -105,7 +107,10 @@ async def add_collaborator(request: Request,
                            db: Session = Depends(get_db),
                            project_handler: object = Depends(createHandler)):
     # check if project exists
-    project_handler.get_project_internal(project_id, db)
+    proj = project_handler.get_project_internal(project_id, db)
+    if new_participant.name == proj.created_by:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Cannot invite yourself to project")
     owned = request.state.owned
     # check owner privileges
     check_privilege(project_id=project_id,
@@ -188,6 +193,7 @@ async def upload_project_logo(request: Request,
                                        logo_name=logo.filename,
                                        b_content=content,
                                        logo_poster=username,
+                                       content_type=logo.content_type,
                                        db=db)
     logger.info(f"Updated logo for project {project_id}")
     return resp
@@ -238,3 +244,32 @@ async def delete_logo(request: Request,
                                 user_calling=username,
                                 db=db)
     logger.info(f"Deleted logo for project {project_id}")
+
+
+@project_router.get("/project/{project_id}/share", response_model=SentEmailProjectInvite)
+async def send_email_invite(request: Request,
+                            project_id: int,
+                            email: str,
+                            db: Session = Depends(get_db),
+                            project_handler: object = Depends(createHandler)):
+    project_handler.get_project_internal(project_id, db)
+    owned = request.state.owned
+    # check owner privileges
+    check_privilege(project_id=project_id,
+                    owned_projects=owned,
+                    owner_status_required=True)
+    invite_username = get_user_from_email(email, db=db)
+    username = request.state.username
+    if username == invite_username:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Cannot invite yourself to project")
+    text, token = project_handler.email_invite(project_id=project_id,
+                                        invite_sender_username=username,
+                                        invite_receiver=invite_username,
+                                        email=email,
+                                        db=db)
+    message_id = SESService.send_email_via_ses(text=text, to_address=email)
+    resp = SentEmailProjectInvite(aws_message_id=message_id,
+                                  join_token=token)
+    logger.info(f"Sent email invite to {invite_username} for project {project_id}")
+    return resp

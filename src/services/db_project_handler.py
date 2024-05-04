@@ -4,8 +4,9 @@ from src.logs.logger import get_logger
 from src.project_handler_interface import ProjectHandlerInterface
 from src.routers.project.schemas import Project, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission
 from fastapi import HTTPException
+from src.services.invite_utils import create_join_token
+from src.services.project_manager_tables import Projects, ProjectAccess, Documents, Users
 from src.services.documents_utils import S3Service
-from src.services.project_manager_tables import Projects, ProjectAccess, Documents
 from uuid import uuid4
 from datetime import datetime
 from src.services.common_utils import reformat_filename, generate_logo_key, get_logo_name_for_user
@@ -112,8 +113,13 @@ class DbProjectHandler(ProjectHandlerInterface):
         else:
             return project
 
-
-    def grant_access(self, project_id: int, username: str, db: Session):
+    
+    @staticmethod
+    def grant_access(project_id: int, username: str, db: Session):
+        owned, participating = DbProjectHandler.get_project_privileges(db=db, username=username)
+        if project_id in participating:
+            raise HTTPException(status_code=400,
+                                detail="User already participating in the project")
         new_access = ProjectAccess(project_id=project_id,
                                    username=username,
                                    access_type="participant")
@@ -167,7 +173,9 @@ class DbProjectHandler(ProjectHandlerInterface):
         # upload to s3
         s3_service = S3Service(self.documents_bucket)
         try:
-            s3_service.upload_file_to_s3(key=str(new_s3_key), bin_file=byfile)
+            s3_service.upload_file_to_s3(key=str(new_s3_key),
+                                         bin_file=byfile,
+                                         content_type=content_type)
         except Exception as ex:
             logger.error(f"Failed to upload document for project {project_id}")
             raise ex
@@ -210,6 +218,7 @@ class DbProjectHandler(ProjectHandlerInterface):
                     logo_name: str,
                     b_content: bytes,
                     logo_poster:str,
+                    content_type: str,
                     db: Session) -> ProjectLogo:
         clean_user_provided_name = reformat_filename(logo_name)
         logo_key = generate_logo_key(clean_user_provided_name, project_id)
@@ -221,7 +230,9 @@ class DbProjectHandler(ProjectHandlerInterface):
         s3_service_raw = S3Service(self.raw_logos_bucket)
         try:
             db.execute(q)
-            s3_service_raw.upload_file_to_s3(logo_key, b_content)
+            s3_service_raw.upload_file_to_s3(key=logo_key, 
+                                             bin_file=b_content,
+                                             content_type=content_type)
         except Exception as ex:
             logger.error(f"Failed to upload logo for project {project_id}")
             raise ex
@@ -276,3 +287,22 @@ class DbProjectHandler(ProjectHandlerInterface):
             raise ex
         else:
             db.commit()
+    
+
+    def email_invite(self,
+                     project_id: int,
+                     invite_sender_username: str,
+                     invite_receiver: str,
+                     email: str,
+                     db: Session):
+        proj = db.get(Projects, project_id)
+        owner = db.get(Users, invite_sender_username)
+        token_claims = {"sub": invite_receiver, "project": project_id}
+        join_token = create_join_token(to_encode=token_claims)
+        text = f"""Hello,
+        {owner.name} invited you to join the project '{proj.name}'.
+        To accept the invite go to: http://<url-where-app-is-running>/join?project_id={project_id}&join_token={join_token}
+        This invite is valid for 3 days. This is an automatic email, do not reply to this address. For additional info reply to {owner.email}"""
+        return text, join_token
+
+        

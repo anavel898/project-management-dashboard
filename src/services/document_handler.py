@@ -52,7 +52,7 @@ class DocumentHandler():
                 fields_to_update)
             db.execute(q)
             # try uploading new doc with old key to s3
-            s3_service.upload_file_to_s3(key=key, bin_file=b_content)
+            s3_service.upload_file_to_s3(key=key, bin_file=b_content, content_type=content_type)
         except Exception as ex:
             logger.error(f"Failed to update document {document_id}")
             raise ex

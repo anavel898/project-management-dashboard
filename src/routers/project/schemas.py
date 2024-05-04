@@ -53,9 +53,19 @@ class ProjectPermission(BaseModel):
     username: str
     role: str
 
+
 class CoreProjectData(BaseModel):
     id: int
     name: str
     description: str
     owner: str
     created_on: datetime
+
+
+class EmailInviteProject(BaseModel):
+    email: str = Field(pattern="([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+")
+
+
+class SentEmailProjectInvite(BaseModel):
+    aws_message_id: str
+    join_token: str

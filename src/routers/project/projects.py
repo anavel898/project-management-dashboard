@@ -189,6 +189,7 @@ async def upload_project_logo(request: Request,
                                        logo_name=logo.filename,
                                        b_content=content,
                                        logo_poster=username,
+                                       content_type=logo.content_type,
                                        db=db)
     logger.info(f"Updated logo for project {project_id}")
     return resp

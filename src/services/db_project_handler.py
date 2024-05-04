@@ -170,7 +170,9 @@ class DbProjectHandler(ProjectHandlerInterface):
         # upload to s3
         s3_service = S3Service(self.documents_bucket)
         try:
-            s3_service.upload_file_to_s3(key=str(new_s3_key), bin_file=byfile)
+            s3_service.upload_file_to_s3(key=str(new_s3_key),
+                                         bin_file=byfile,
+                                         content_type=content_type)
         except Exception as ex:
             logger.error(f"Failed to upload document for project {project_id}")
             raise ex
@@ -213,6 +215,7 @@ class DbProjectHandler(ProjectHandlerInterface):
                     logo_name: str,
                     b_content: bytes,
                     logo_poster:str,
+                    content_type: str,
                     db: Session) -> ProjectLogo:
         clean_user_provided_name = reformat_filename(logo_name)
         logo_key = generate_logo_key(clean_user_provided_name, project_id)
@@ -224,7 +227,9 @@ class DbProjectHandler(ProjectHandlerInterface):
         s3_service_raw = S3Service(self.raw_logos_bucket)
         try:
             db.execute(q)
-            s3_service_raw.upload_file_to_s3(logo_key, b_content)
+            s3_service_raw.upload_file_to_s3(key=logo_key, 
+                                             bin_file=b_content,
+                                             content_type=content_type)
         except Exception as ex:
             logger.error(f"Failed to upload logo for project {project_id}")
             raise ex

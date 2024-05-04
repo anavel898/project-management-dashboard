@@ -15,7 +15,7 @@ class S3Service():
     def upload_file_to_s3(self, key: str, bin_file: bytes, content_type: str):
         bucket = self.s3.Bucket(self.bucket_name)
         try:
-            bucket.put_object(Key=key, Body=bin_file, ContentType=content_type)
+            bucket.put_object(Key=key, Body=bin_file, ContentType=content_type, Metadata={'Content-Type': content_type})
         except Exception as ex:
             logger.error(f"Failed to upload file to S3. Error message: {ex}")
             raise ex

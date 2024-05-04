@@ -116,6 +116,10 @@ class DbProjectHandler(ProjectHandlerInterface):
     
     @staticmethod
     def grant_access(project_id: int, username: str, db: Session):
+        owned, participating = DbProjectHandler.get_project_privileges(db=db, username=username)
+        if project_id in participating:
+            raise HTTPException(status_code=400,
+                                detail="User already participating in the project")
         new_access = ProjectAccess(project_id=project_id,
                                    username=username,
                                    access_type="participant")

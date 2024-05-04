@@ -107,7 +107,10 @@ async def add_collaborator(request: Request,
                            db: Session = Depends(get_db),
                            project_handler: object = Depends(createHandler)):
     # check if project exists
-    project_handler.get_project_internal(project_id, db)
+    proj = project_handler.get_project_internal(project_id, db)
+    if new_participant.name == proj.created_by:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Cannot invite yourself to project")
     owned = request.state.owned
     # check owner privileges
     check_privilege(project_id=project_id,

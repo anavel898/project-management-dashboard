@@ -265,7 +265,7 @@ async def send_email_invite(request: Request,
                                         invite_receiver=invite_username,
                                         email=email,
                                         db=db)
-    message_id = SESService().send_email_via_ses(text=text, to_address=email)
+    message_id = SESService.send_email_via_ses(text=text, to_address=email)
     resp = SentEmailProjectInvite(aws_message_id=message_id,
                                   join_token=token)
     logger.info(f"Sent email invite to {invite_username} for project {project_id}")

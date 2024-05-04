@@ -7,6 +7,7 @@ from src.project_handler_factory import createHandler
 from src.routers.project.schemas import NewProject, UpdateProject, Project, InviteProject, ProjectDocument, ProjectLogo, CoreProjectData, ProjectPermission, EmailInviteProject, SentEmailProjectInvite
 from src.dependecies import get_db
 from src.services.auth_utils import check_privilege
+from src.services.aws_utils import SESService
 from src.services.invite_utils import get_user_from_email
 
 project_router = APIRouter()
@@ -259,10 +260,13 @@ async def send_email_invite(request: Request,
     if username == invite_username:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Cannot invite yourself to project")
-    resp = project_handler.email_invite(project_id=project_id,
+    text, token = project_handler.email_invite(project_id=project_id,
                                         invite_sender_username=username,
                                         invite_receiver=invite_username,
                                         email=email,
                                         db=db)
+    message_id = SESService().send_email_via_ses(text=text, to_address=email)
+    resp = SentEmailProjectInvite(aws_message_id=message_id,
+                                  join_token=token)
     logger.info(f"Sent email invite to {invite_username} for project {project_id}")
     return resp

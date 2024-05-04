@@ -238,17 +238,19 @@ class Test_Db_Handler(unittest.TestCase):
         self.assertIsInstance(proj.updated_on, datetime)
 
 
-    @mock.patch("src.services.db_project_handler.SESService.send_email_via_ses", new_callable=email_helper)
-    def test_m_email_invite(self, result):
+    def test_m_email_invite(self):
         handler = DbProjectHandler()
-        invite = handler.email_invite(project_id=1,
-                                      invite_sender_username="username1",
-                                      invite_receiver="username2",
-                                      email="new@gmail.com",
-                                      db=self.session)
-        self.assertTrue(result.called)
-        self.assertEqual("str-simulating-message-id", invite.aws_message_id)
-        self.assertIsInstance(invite.join_token, str)
+        email_text, join_token = handler.email_invite(project_id=1,
+                                                      invite_sender_username="username1",
+                                                      invite_receiver="username2",
+                                                      email="new@gmail.com",
+                                                      db=self.session)
+        desired_text = f"""Hello,
+        Test User invited you to join the project 'Project 1'.
+        To accept the invite go to: http://<url-where-app-is-running>/join?project_id=1&join_token={join_token}
+        This invite is valid for 3 days. This is an automatic email, do not reply to this address. For additional info reply to test@gmail.com"""
+        self.assertEqual(desired_text, email_text)
+        self.assertIsInstance(join_token, str)
 
 
     def test_z_delete(self):

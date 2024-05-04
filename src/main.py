@@ -71,5 +71,5 @@ async def add_user_privilieges_to_header(request, call_next):
 
 @app.get("/")
 async def root():
-    return {"message": "hello from latest version of code!"}
+    return {"message": "Welcome to Project Manager Dashboard"}
 

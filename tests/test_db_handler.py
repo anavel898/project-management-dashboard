@@ -203,6 +203,7 @@ class Test_Db_Handler(unittest.TestCase):
                                    logo_name="test_logo.png",
                                    b_content=file_contents,
                                    logo_poster="username1",
+                                   content_type="image/png",
                                    db=self.session)
         file_contents.close()
         self.assertTrue(result.called)
